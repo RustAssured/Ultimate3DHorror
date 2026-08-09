@@ -53,7 +53,40 @@ export class World {
 
   // ---------- builders ----------
   _buildSky(scene) {
-    scene.background = new THREE.Color(0x05060a);
+    scene.background = new THREE.Color(0x070a10);
+
+    // faint nebula gradient backdrop so the void reads as depth, not black-with-dots
+    const skyGeo = new THREE.SphereGeometry(500, 32, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: {
+        uTop: { value: new THREE.Color(0x0b1622) },
+        uBot: { value: new THREE.Color(0x05070c) },
+        uHaze: { value: new THREE.Color(0x16303a) },
+        uGlow: { value: new THREE.Color(0x241033) },
+      },
+      vertexShader: /* glsl */`
+        varying vec3 vD;
+        void main(){ vD = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }
+      `,
+      fragmentShader: /* glsl */`
+        precision highp float;
+        varying vec3 vD; uniform vec3 uTop,uBot,uHaze,uGlow;
+        void main(){
+          float h = vD.y*0.5+0.5;
+          vec3 c = mix(uBot, uTop, smoothstep(0.0,1.0,h));
+          c += uHaze * pow(1.0-abs(vD.y),4.0)*0.6;         // horizon haze
+          // a faint magenta nebula smear low on one side (From Beyond tint)
+          float neb = pow(max(dot(vD, normalize(vec3(0.4,-0.2,-0.9))),0.0), 3.0);
+          c += uGlow * neb * 0.5;
+          gl_FragColor = vec4(c,1.0);
+        }
+      `,
+    });
+    this.skyDome = new THREE.Mesh(skyGeo, skyMat);
+    this.skyDome.frustumCulled = false;
+    scene.add(this.skyDome);
+
     // Star dome
     const N = 1400;
     const pos = new Float32Array(N * 3);
@@ -75,26 +108,30 @@ export class World {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const m = new THREE.PointsMaterial({ size: 1.5, sizeAttenuation: true, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false });
+    const m = new THREE.PointsMaterial({ size: 1.15, sizeAttenuation: true, vertexColors: true, transparent: true, opacity: 0.6, depthWrite: false, fog: false });
     this.stars = new THREE.Points(g, m);
     scene.add(this.stars);
   }
 
   _buildFog(scene) {
-    // sickly teal-green haze — the Carpenter fog that hides everything
-    scene.fog = new THREE.FogExp2(0x070c0d, 0.03);
-    this.baseFog = 0.03;
+    // sickly teal-green haze — the Carpenter fog (density set by brightness preset)
+    scene.fog = new THREE.FogExp2(0x0a1214, 0.017);
+    this.baseFog = 0.017;
   }
 
   _buildLights(scene) {
-    // low, cold ambient (lux) — enough to read silhouettes; lantern does the rest
-    this.ambient = new THREE.HemisphereLight(0x2c3f5e, 0x05070e, 1.5);
+    // cold ambient (lux) — reads the world without killing the dark
+    this.ambient = new THREE.HemisphereLight(0x38506f, 0x070a12, 2.6);
     scene.add(this.ambient);
 
     // cold key from "above the rift"
-    this.moon = new THREE.DirectionalLight(0x5b7cb0, 1.6);
+    this.moon = new THREE.DirectionalLight(0x6f90c0, 2.4);
     this.moon.position.set(-30, 60, -20);
     scene.add(this.moon);
+
+    // gentle overall fill so nothing is pure black on dim displays
+    this.fillAmbient = new THREE.AmbientLight(0x223046, 0.6);
+    scene.add(this.fillAmbient);
 
     // the Sleeper's glow from below (added near sleeper build)
   }
@@ -106,9 +143,9 @@ export class World {
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position;
     const colors = new Float32Array(pos.count * 3);
-    const cLow = new THREE.Color(0x0a1018);
-    const cHigh = new THREE.Color(0x263140);
-    const cMoss = new THREE.Color(0x14312e);
+    const cLow = new THREE.Color(0x17212e);
+    const cHigh = new THREE.Color(0x3d4f64);
+    const cMoss = new THREE.Color(0x224a42);
     const tmp = new THREE.Color();
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), z = pos.getZ(i);

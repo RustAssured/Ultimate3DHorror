@@ -84,11 +84,11 @@ const AnalogShader = {
       vec3 shadowTint = vec3(0.10,0.22,0.28);   // teal shadows
       vec3 highTint   = vec3(1.06,0.92,0.70);   // amber highlights
       col *= mix(shadowTint*2.0, highTint, smoothstep(0.0,0.8,lum));
-      col = pow(max(col,0.0), vec3(1.10));       // contrast
-      col = (col - 0.5) * 1.08 + 0.5;            // more contrast
+      col = pow(max(col,0.0), vec3(1.05));       // gentle contrast
+      col = (col - 0.5) * 1.04 + 0.5;
       col = max(col, 0.0);
-      // crush blacks
-      col = max(col - 0.02, 0.0) * 1.02;
+      // lift shadows slightly so nothing is pure black
+      col += vec3(0.012, 0.016, 0.02);
 
       // --- scanlines + interlace shimmer ---
       float scan = 0.94 + 0.06*sin(uv.y*uResolution.y*1.4 + t*2.0);
@@ -96,9 +96,9 @@ const AnalogShader = {
       col *= 0.985 + 0.015*sin(uv.y*uResolution.y*0.5 - t*10.0);
 
       // --- vignette ---
-      float vig = smoothstep(0.92, uVignette, dist);
-      col *= 1.0 - vig*(0.55 + uDread*0.28);
-      col -= dist*dist*uDread*0.22;
+      float vig = smoothstep(0.96, uVignette, dist);
+      col *= 1.0 - vig*(0.4 + uDread*0.25);
+      col -= dist*dist*uDread*0.14;
 
       // --- film grain (animated) ---
       float gr = hash(uv*uResolution + fract(t)*vec2(37.0,17.0));

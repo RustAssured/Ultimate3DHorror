@@ -19,6 +19,17 @@
   <canvas id="game"></canvas>
   <div id="ui"></div>
   <div id="fatal"></div>
+
+  <!-- Optional: use a custom 3D model (e.g. a Meshy GLB) for the Warden.
+       Drop the file in assets/models/ and uncomment. See assets/models/README.md.
+  <script>
+    window.COSMIC_CONFIG = {
+      wardenModel: './assets/models/warden.glb',
+      wardenModelOpts: { height: 1.9, clips: { idle: 'Idle', walk: 'Walk', run: 'Run' } }
+    };
+  </script>
+  -->
+
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

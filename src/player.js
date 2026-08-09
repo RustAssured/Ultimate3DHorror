@@ -1,6 +1,7 @@
 // player.js — the Warden: procedural rig, third-person controller, lantern.
 import * as THREE from 'three';
 import { clamp, damp, lerp, TAU } from './util.js';
+import { loadGLTF, CharacterModel } from './models.js';
 
 export class Player {
   constructor(scene) {
@@ -29,6 +30,8 @@ export class Player {
 
     this._stepDist = 0;
     this._walkPhase = 0;
+
+    this.model = null;   // optional loaded glTF character (Meshy etc.)
 
     this._buildRig();
     this._buildLantern();
@@ -218,6 +221,26 @@ export class Player {
     if (audio) audio.step();
   }
 
+  // Swap the procedural rig for a loaded glTF/GLB character (e.g. a Meshy model).
+  // Falls back silently to the procedural rig on any error.
+  async setWardenModel(url, opts = {}) {
+    try {
+      const gltf = await loadGLTF(url);
+      this.model = new CharacterModel(gltf, { targetHeight: opts.height || 1.9, clips: opts.clips || {} });
+      // reparent the lantern out of the (now hidden) procedural arm so its
+      // light/beam survive, then hide the procedural body
+      this.rig.add(this.lantern);
+      this.lantern.position.set(0.34, 1.15, 0.28);
+      this.bodyGroup.visible = false;
+      this.rig.add(this.model.object);
+      return true;
+    } catch (err) {
+      console.warn('Warden model failed to load, using procedural rig:', err.message);
+      this.model = null;
+      return false;
+    }
+  }
+
   // returns { stepped:boolean } for footstep audio
   update(dt, input, world, camera, opts = {}) {
     const allowControl = opts.allowControl !== false;
@@ -283,18 +306,23 @@ export class Player {
     this.rig.rotation.y = this.facing;
     this.object.position.copy(this.pos);
 
-    // ---- limb animation (walk cycle + idle sway) ----
-    const stride = clamp(this.speed / maxSpeed, 0, 1);
-    this._walkPhase += dt * (6 + this.speed * 1.6);
-    const swing = Math.sin(this._walkPhase) * (0.15 + stride * 0.6);
-    const swing2 = Math.sin(this._walkPhase + Math.PI) * (0.15 + stride * 0.6);
-    this.legL.rotation.x = swing;
-    this.legR.rotation.x = swing2;
-    this.armL.rotation.x = swing2 * 0.7;
-    this.armR.rotation.x = swing * 0.4; // damped: holding lantern
-    // gentle vertical bob + breathing when idle
-    const bob = Math.abs(Math.sin(this._walkPhase)) * stride * 0.06 + Math.sin(this.object.userData.t = (this.object.userData.t || 0) + dt * 1.6) * 0.01;
-    this.bodyGroup.position.y = bob;
+    // ---- animation ----
+    if (this.model) {
+      // loaded glTF character: drive its animation state machine
+      this.model.update(dt, { moving: this.moving, sprinting });
+    } else {
+      // procedural rig: walk cycle + idle sway
+      const stride = clamp(this.speed / maxSpeed, 0, 1);
+      this._walkPhase += dt * (6 + this.speed * 1.6);
+      const swing = Math.sin(this._walkPhase) * (0.15 + stride * 0.6);
+      const swing2 = Math.sin(this._walkPhase + Math.PI) * (0.15 + stride * 0.6);
+      this.legL.rotation.x = swing;
+      this.legR.rotation.x = swing2;
+      this.armL.rotation.x = swing2 * 0.7;
+      this.armR.rotation.x = swing * 0.4; // damped: holding lantern
+      const bob = Math.abs(Math.sin(this._walkPhase)) * stride * 0.06 + Math.sin(this.object.userData.t = (this.object.userData.t || 0) + dt * 1.6) * 0.01;
+      this.bodyGroup.position.y = bob;
+    }
 
     // footstep detection
     let stepped = false;

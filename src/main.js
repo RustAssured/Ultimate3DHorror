@@ -51,7 +51,14 @@ class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.4;
+    // brightness presets (exposure + fog); index 1 is default. Adjustable in-game.
+    this.brightnessLevels = [
+      { name: 'DIM', exp: 1.7, fog: 0.022 },
+      { name: 'NORMAL', exp: 2.1, fog: 0.017 },
+      { name: 'BRIGHT', exp: 2.5, fog: 0.013 },
+    ];
+    this.brightness = 2; // default to the brightest preset; players can dim it
+    this.renderer.toneMappingExposure = this.brightnessLevels[2].exp;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
 
@@ -73,6 +80,20 @@ class Game {
     this.relics = new Relics(this.scene, this.world, 6);
     this.postfx = new PostFX(this.renderer, this.scene, this.camera);
 
+    // restore saved brightness preference
+    try {
+      const b = parseInt(localStorage.getItem('cf_brightness'), 10);
+      if (!isNaN(b) && b >= 0 && b < this.brightnessLevels.length) this.brightness = b;
+    } catch (e) { /* ignore */ }
+    this.setBrightness(this.brightness);
+
+    // optional: swap in a loaded glTF/GLB Warden (e.g. a Meshy export).
+    // Configure by setting window.COSMIC_CONFIG before the game boots.
+    const cfg = window.COSMIC_CONFIG || {};
+    if (cfg.wardenModel) {
+      this.player.setWardenModel(cfg.wardenModel, cfg.wardenModelOpts || {});
+    }
+
     this.hud.showTitle(true);
     this.hud.showHUD(false);
   }
@@ -84,6 +105,9 @@ class Game {
     this.hud.muteBtn.addEventListener('click', () => {
       this.audio.setMuted(!this.audio.muted);
       this.hud.setMuteLabel(this.audio.muted);
+    });
+    this.hud.brightBtn.addEventListener('click', () => {
+      this.setBrightness((this.brightness + 1) % this.brightnessLevels.length);
     });
     this.hud.endBtn.addEventListener('click', () => this._restart());
 
@@ -141,10 +165,20 @@ class Game {
     this.input.requestLock();
   }
 
+  setBrightness(i) {
+    this.brightness = i;
+    const lvl = this.brightnessLevels[i];
+    this.renderer.toneMappingExposure = lvl.exp;
+    this.world.baseFog = lvl.fog;
+    this.hud.setBrightnessLabel(lvl.name);
+    try { localStorage.setItem('cf_brightness', String(i)); } catch (e) { /* ignore */ }
+  }
+
   _pause() {
     if (this.state !== STATE.PLAY) return;
     this.state = STATE.PAUSED;
     this.hud.showPause(true);
+    this.hud.setBrightnessLabel(this.brightnessLevels[this.brightness].name);
     this.input.exitLock();
   }
   _resume() {

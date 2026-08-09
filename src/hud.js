@@ -71,6 +71,7 @@ export class HUD {
     this.pause = this._el('div', 'screen pause-screen hidden');
     this._el('div', 'screen-title', this.pause, 'PAUSED');
     this.resumeBtn = this._el('button', 'btn', this.pause, 'RESUME');
+    this.brightBtn = this._el('button', 'btn', this.pause, 'BRIGHTNESS: NORMAL');
     this.muteBtn = this._el('button', 'btn', this.pause, 'SOUND: ON');
     this.quitBtn = this._el('button', 'btn', this.pause, 'ABANDON THE FALL');
 
@@ -150,6 +151,7 @@ export class HUD {
   }
   hideEnd() { this.end.classList.add('hidden'); }
   setMuteLabel(muted) { this.muteBtn.textContent = muted ? 'SOUND: OFF' : 'SOUND: ON'; }
+  setBrightnessLabel(name) { this.brightBtn.textContent = 'BRIGHTNESS: ' + name; }
 
   // ---------- per-frame ----------
   update(dt) {

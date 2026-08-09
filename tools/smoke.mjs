@@ -157,19 +157,32 @@ async function main() {
   await sleep(300);
   await shot('09b-stalker-lit');
 
+  // --- verify the glTF/GLB loader pipeline (vendored GLTFLoader) ---
+  const modelCheck = await page.evaluate(async () => {
+    try {
+      const m = await import('/src/models.js');
+      const gltf = await m.loadGLTF('/tools/fixtures/triangle.glb');
+      let meshes = 0; gltf.scene.traverse((o) => { if (o.isMesh) meshes++; });
+      return { ok: meshes > 0, meshes, anims: (gltf.animations || []).length };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  });
+  console.log('GLTF loader ->', JSON.stringify(modelCheck));
+
   await browser.close();
   server.close();
 
   const ok = errors.length === 0
     && winResult.state === 'win'
     && midHunt.stalker === true
-    && loseResult.state === 'lose';
+    && loseResult.state === 'lose'
+    && modelCheck.ok === true;
   console.log('\n=== ERRORS (' + errors.length + ') ===');
   for (const e of errors.slice(0, 40)) console.log(e);
   console.log('\n=== CHECKS ===');
   console.log('win reachable   :', winResult.state === 'win' ? 'PASS' : 'FAIL(' + winResult.state + ')');
   console.log('stalker spawns  :', midHunt.stalker ? 'PASS' : 'FAIL');
   console.log('dark is lethal  :', loseResult.state === 'lose' ? 'PASS' : 'FAIL(' + loseResult.state + ')');
+  console.log('gltf loader     :', modelCheck.ok ? 'PASS' : 'FAIL(' + (modelCheck.error || '') + ')');
   console.log(ok ? '\nALL GOOD' : '\nFAILURES PRESENT');
   process.exit(ok ? 0 : 1);
 }

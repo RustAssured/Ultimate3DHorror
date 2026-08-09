@@ -36,7 +36,18 @@ Or `npm start`.
 | Lantern on/off | `F` |
 | Pause | `Esc` |
 
-Best played with sound on, in the dark.
+Best played with sound on, in the dark. If it's too dark (or too bright) for
+your display, open **Pause → BRIGHTNESS** to cycle DIM / NORMAL / BRIGHT — the
+choice is saved.
+
+## Custom 3D models (Meshy, Blender, …)
+
+The game ships with procedural rigs, but it can load real glTF/GLB models —
+including [Meshy](https://www.meshy.ai) exports — via the standard Three.js
+loader, with animation support and graceful fallback. Drop a `.glb` in
+`assets/models/`, point `window.COSMIC_CONFIG` at it, and the third-person
+controller drives it. Full instructions and recommended Meshy export settings
+are in [`assets/models/README.md`](assets/models/README.md).
 
 ## The loop
 
