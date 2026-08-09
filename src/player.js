@@ -144,6 +144,60 @@ export class Player {
     this.armR.add(g);
     g.position.set(0, -0.72, 0.12);
     this.lantern = g;
+
+    this._buildBeamCone();
+  }
+
+  // Fake volumetric god-ray cone in the beam — the Carpenter fog-in-the-light look.
+  _buildBeamCone() {
+    const H = 26;              // beam length
+    const geo = new THREE.ConeGeometry(4.6, H, 28, 24, true);
+    geo.translate(0, -H / 2, 0);   // apex at origin, body along -Y
+    this._beamH = H;
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      uniforms: {
+        uTime: { value: 0 },
+        uOpacity: { value: 0.5 },
+        uColor: { value: new THREE.Color(0xffe6c0) },
+        uH: { value: H },
+      },
+      vertexShader: /* glsl */`
+        varying float vT; varying vec2 vUv;
+        uniform float uH;
+        void main(){
+          vT = clamp(-position.y / uH, 0.0, 1.0);  // 0 apex .. 1 base
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+        }
+      `,
+      fragmentShader: /* glsl */`
+        precision highp float;
+        varying float vT; varying vec2 vUv;
+        uniform float uTime, uOpacity; uniform vec3 uColor;
+        float hash(vec2 p){ p=fract(p*vec2(127.1,311.7)); p+=dot(p,p+34.5); return fract(p.x*p.y); }
+        void main(){
+          // fade along length: bright near source, gone at the end
+          float lenFade = pow(1.0 - vT, 1.7);
+          // soft edge around the cone circumference (uv.x wraps 0..1)
+          float edge = smoothstep(0.0, 0.15, vUv.x) * smoothstep(1.0, 0.85, vUv.x);
+          edge = 0.35 + edge*0.65;
+          // drifting fog motes in the beam
+          float n = hash(floor(vec2(vUv.x*40.0, (vT*10.0 - uTime*0.6))));
+          float fog = 0.6 + 0.4*n;
+          float a = lenFade * edge * fog * uOpacity;
+          gl_FragColor = vec4(uColor * a, a);
+        }
+      `,
+    });
+    this.beamCone = new THREE.Mesh(geo, mat);
+    this.beamCone.frustumCulled = false;
+    this.beamCone.renderOrder = 2;
+    this.scene.add(this.beamCone);
+    this._beamDown = new THREE.Vector3(0, -1, 0);
   }
 
   reset(x, z, world) {
@@ -273,8 +327,17 @@ export class Player {
     // aim beam forward from lantern
     const lanternWorld = new THREE.Vector3();
     this.lantern.getWorldPosition(lanternWorld);
-    const aim = new THREE.Vector3(Math.sin(this.facing), -0.18, Math.cos(this.facing));
-    this.beamTarget.position.copy(lanternWorld).add(aim.multiplyScalar(10));
+    const aimDir = new THREE.Vector3(Math.sin(this.facing), -0.18, Math.cos(this.facing)).normalize();
+    this.beamTarget.position.copy(lanternWorld).addScaledVector(aimDir, 10);
+
+    // volumetric god-ray cone follows the beam
+    if (this.beamCone) {
+      this.beamCone.position.copy(lanternWorld);
+      this.beamCone.quaternion.setFromUnitVectors(this._beamDown, aimDir);
+      this.beamCone.material.uniforms.uTime.value = (this.beamCone.material.uniforms.uTime.value + dt);
+      this.beamCone.material.uniforms.uOpacity.value = this.lanternOn ? 0.42 * gi : 0;
+      this.beamCone.visible = this.lanternOn && gi > 0.01;
+    }
 
     // ---- position third-person camera ----
     if (!opts.freeCam) this._updateCamera(dt, camera, world);

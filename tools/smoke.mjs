@@ -92,46 +92,6 @@ async function main() {
 
   await page.evaluate(() => window.__game.input.keys.delete('KeyW'));
 
-  // log camera + player state at the player-cam framing
-  const camState = await page.evaluate(() => {
-    const g = window.__game, c = g.camera, p = g.player;
-    return {
-      camPos: [+c.position.x.toFixed(2), +c.position.y.toFixed(2), +c.position.z.toFixed(2)],
-      camRotZ: +c.rotation.z.toFixed(3), camUp: [c.up.x, c.up.y, c.up.z],
-      facing: +p.facing.toFixed(3), camYaw: +p.camYaw.toFixed(3), camPitch: +p.camPitch.toFixed(3),
-      playerPos: [+p.pos.x.toFixed(2), +p.pos.y.toFixed(2), +p.pos.z.toFixed(2)],
-      aspect: +c.aspect.toFixed(3),
-    };
-  });
-  console.log('CAM STATE:', JSON.stringify(camState));
-
-  // overhead shot to see island shape + player location (fog off)
-  await page.evaluate(() => {
-    const g = window.__game; const p = g.player.pos;
-    g._savedFog = g.scene.fog; g.scene.fog = null;
-    g.world.ambient.intensity = 25;
-    g.setFreeCam([p.x, p.y + 70, p.z + 0.5], [p.x, p.y, p.z]);
-    g._debugSimulate(0.1);
-  });
-  await sleep(300);
-  await shot('08-overhead');
-  await page.evaluate(() => { const g = window.__game; g.clearFreeCam(); g.world.ambient.intensity = 1.5; g.scene.fog = g._savedFog; });
-
-  // --- diagnostic: player-cam but fully lit, to reveal any occluding geometry ---
-  await page.evaluate(() => {
-    const g = window.__game;
-    g.world.ambient.intensity = 40; g.world.moon.intensity = 20;
-    g.renderer.toneMappingExposure = 2.2;
-    g._debugSimulate(0.1);
-  });
-  await sleep(300);
-  await shot('04b-bright');
-  await page.evaluate(() => {
-    const g = window.__game;
-    g.world.ambient.intensity = 1.5; g.world.moon.intensity = 1.6;
-    g.renderer.toneMappingExposure = 1.4;
-  });
-
   // --- diagnostic: 3/4 free-cam view of the Warden to inspect the rig/scene ---
   await page.evaluate(() => {
     const g = window.__game;
@@ -174,15 +134,28 @@ async function main() {
   await sleep(300);
   await page.evaluate(() => {
     const g = window.__game; const p = g.player.pos;
-    g.stalker.active = true; g.stalker.materialize = 1; g.stalker.menace = 0.8;
+    const sx = p.x, sz = p.z - 7, sy = g.world.heightAt(p.x, p.z - 7);
+    g.stalker.active = true; g.stalker.materialize = 1; g.stalker.menace = 0.9;
     g.stalker.group.visible = true;
-    g.stalker.pos.set(p.x, g.world.heightAt(p.x, p.z - 6), p.z - 6);
+    g.stalker.pos.set(sx, sy, sz);
     g.stalker.group.position.copy(g.stalker.pos);
-    g.setFreeCam([p.x + 3.5, p.y + 3, p.z + 3], [p.x, p.y + 1.5, p.z - 5]);
+    g.stalker.update(0.016, g.player, g.world, 0.9, g.camera); // refresh shader uniforms
+    g.setFreeCam([sx + 2.6, sy + 3.0, sz + 3.4], [sx, sy + 2.0, sz]);
     g._debugSimulate(0.05);
   });
   await sleep(400);
   await shot('09-stalker');
+  // lit reveal of the sculpt
+  await page.evaluate(() => {
+    const g = window.__game; const s = g.stalker.pos;
+    const THREE = g.player.glow.constructor; // PointLight ctor
+    const L = new THREE(0xffffff, 120, 14, 2);
+    L.position.set(s.x + 2, s.y + 3, s.z + 3);
+    g.scene.add(L); g._diagRevealLight = L;
+    g._debugSimulate(0.02);
+  });
+  await sleep(300);
+  await shot('09b-stalker-lit');
 
   await browser.close();
   server.close();

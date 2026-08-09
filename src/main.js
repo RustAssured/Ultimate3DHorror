@@ -302,6 +302,7 @@ class Game {
   _handleEchoEvents(ev) {
     if (ev.collected != null) {
       this.resolve = clamp(this.resolve + 0.22, 0, 1);
+      this.postfx.triggerGlitch(0.55); // the Sleeper feels the chord tighten
       this.hud.setEchoes(ev.collected, this.relics.total);
       const line = Story.ECHOES[this._echoIndex] || 'ECHO — the voice fades.';
       this._echoIndex++;
@@ -374,8 +375,18 @@ class Game {
     const stalkerPressure = s.stalkerPressure;
     this._maybeSpawnStalker(dt);
 
+    // reality tears: brief Mouth-of-Madness glitches as dread mounts
+    if (this.dread > 0.5 && Math.random() < dt * (this.dread - 0.45) * 1.6) {
+      this.postfx.triggerGlitch(0.35 + Math.random() * 0.5);
+    }
+
     const res = this.stalker.update(dt, this.player, this.world, this.dread, this.camera);
     if (res.caught) this._lose('caught');
+    // the world tears harder the closer the thing gets
+    if (this.stalker.active) {
+      const sd = this.stalker.distanceTo(this.player);
+      if (sd < 5) this.postfx.triggerGlitch(dt * (5 - sd) * 0.9);
+    }
 
     const ev = this.relics.update(dt, this.player, this.audio);
     this._handleEchoEvents(ev);

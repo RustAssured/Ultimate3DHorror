@@ -81,8 +81,9 @@ export class World {
   }
 
   _buildFog(scene) {
-    scene.fog = new THREE.FogExp2(0x06080e, 0.022);
-    this.baseFog = 0.022;
+    // sickly teal-green haze — the Carpenter fog that hides everything
+    scene.fog = new THREE.FogExp2(0x070c0d, 0.03);
+    this.baseFog = 0.03;
   }
 
   _buildLights(scene) {
