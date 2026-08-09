@@ -1,0 +1,19 @@
+{
+  "name": "cosmic-fall",
+  "version": "1.0.0",
+  "description": "COSMIC FALL — a 3D third-person cosmic-horror descent. Three.js, procedural, no asset files.",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8099",
+    "test": "node tools/smoke.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RustAssured/Ultimate3DHorror.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "playwright": "^1.48.0",
+    "three": "^0.160.0"
+  }
+}

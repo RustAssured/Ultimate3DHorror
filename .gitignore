@@ -1,0 +1,10 @@
+# dev/test only — the game itself needs no build step
+node_modules/
+package-lock.json
+
+# headless QA output
+tools/shots/
+
+# misc
+.DS_Store
+*.log
