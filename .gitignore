@@ -8,3 +8,9 @@ tools/shots/
 # misc
 .DS_Store
 *.log
+
+# secrets — never commit API keys (MESHY_API_KEY etc.)
+.env
+.env.*
+!.env.example
+.claude/settings.local.json

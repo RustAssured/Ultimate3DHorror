@@ -49,6 +49,25 @@ loader, with animation support and graceful fallback. Drop a `.glb` in
 controller drives it. Full instructions and recommended Meshy export settings
 are in [`assets/models/README.md`](assets/models/README.md).
 
+### Generating models with the Meshy MCP server
+
+This repo ships a project-scoped MCP config ([`.mcp.json`](.mcp.json)) for the
+[Meshy MCP server](https://www.npmjs.com/package/@meshy-ai/meshy-mcp-server),
+so an MCP client (Claude Code, etc.) can generate, texture, rig, and download
+3D models straight into the project by conversation.
+
+The config reads your API key from the `MESHY_API_KEY` environment variable —
+**the key is never stored in the repo**. Supply it before launching your MCP
+client:
+
+```bash
+export MESHY_API_KEY="msy_..."   # get one at https://www.meshy.ai (Settings → API)
+```
+
+Or copy [`.env.example`](.env.example) to `.env` (git-ignored) and load it in
+your shell. The server itself needs no install — `npx -y` fetches it on first
+use.
+
 ## The loop
 
 - **Light is life.** Your lantern carves the world out of the black and holds
