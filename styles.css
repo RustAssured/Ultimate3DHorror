@@ -116,6 +116,8 @@ body {
   50% { text-shadow: 0 0 60px rgba(150,110,255,0.5), 0 6px 30px rgba(0,0,0,0.9); }
 }
 .game-sub { font-size: clamp(14px, 2.4vw, 20px); color: var(--dim); font-style: italic; letter-spacing: 0.2em; margin-bottom: 20px; }
+.lab-link { pointer-events: auto; margin-top: 14px; font-size: 12px; letter-spacing: 0.18em; color: #ff6fae; text-transform: uppercase; text-decoration: none; border-bottom: 1px solid rgba(255,111,174,0.4); padding-bottom: 2px; transition: color 0.2s; }
+.lab-link:hover { color: #ff9ec9; }
 .title-controls { margin-top: 22px; font-size: 13px; color: var(--dim); line-height: 1.9; letter-spacing: 0.06em; }
 .credit { position: absolute; bottom: 20px; font-size: 11px; color: #3d4658; letter-spacing: 0.15em; }
 .screen-title { font-size: clamp(30px, 6vw, 58px); font-weight: 800; letter-spacing: 0.12em; }

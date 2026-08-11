@@ -2,6 +2,7 @@
 // adrift in the void, with the Sleeper watching from far below.
 import * as THREE from 'three';
 import { RNG, ValueNoise, clamp, TAU } from './util.js';
+import { textureLib } from './textures.js';
 
 const ISLAND_RADIUS = 62;     // playable radius
 const EDGE_SOFT = 10;         // falloff band before the void
@@ -169,8 +170,12 @@ export class World {
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
+    const tex = textureLib();
+    const grime = tex.grime.clone(); grime.needsUpdate = true; grime.repeat.set(28, 28);
+    const grimeFine = tex.grimeFine.clone(); grimeFine.needsUpdate = true; grimeFine.repeat.set(60, 60);
     const mat = new THREE.MeshStandardMaterial({
-      vertexColors: true, roughness: 0.96, metalness: 0.05, flatShading: false,
+      vertexColors: true, roughness: 1.0, metalness: 0.05, flatShading: false,
+      roughnessMap: grime, bumpMap: grimeFine, bumpScale: 0.4,
     });
     this.terrain = new THREE.Mesh(geo, mat);
     this.terrain.receiveShadow = true;
@@ -236,10 +241,13 @@ export class World {
   // Wrecked research-station structures so the shard reads as a fallen place.
   _buildWreckage(scene) {
     const group = new THREE.Group();
-    const rust = new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.9, metalness: 0.5 });
-    const rustDark = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.95, metalness: 0.4 });
-    const panel = new THREE.MeshStandardMaterial({ color: 0x25454a, roughness: 0.8, metalness: 0.3 });
-    const concrete = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: 1, metalness: 0 });
+    const tex = textureLib();
+    const rustMap = tex.rust.clone(); rustMap.needsUpdate = true; rustMap.repeat.set(1, 2);
+    const grimeMap = tex.grime.clone(); grimeMap.needsUpdate = true; grimeMap.repeat.set(2, 2);
+    const rust = new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.9, metalness: 0.5, roughnessMap: rustMap, bumpMap: rustMap, bumpScale: 0.25 });
+    const rustDark = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.95, metalness: 0.4, roughnessMap: rustMap, bumpMap: rustMap, bumpScale: 0.2 });
+    const panel = new THREE.MeshStandardMaterial({ color: 0x25454a, roughness: 0.8, metalness: 0.3, roughnessMap: grimeMap, bumpMap: grimeMap, bumpScale: 0.15 });
+    const concrete = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: 1, metalness: 0, roughnessMap: grimeMap, bumpMap: grimeMap, bumpScale: 0.2 });
     const cableMat = new THREE.MeshStandardMaterial({ color: 0x0d0f12, roughness: 0.9 });
 
     const onGround = (x, z) => this.heightAt(x, z);

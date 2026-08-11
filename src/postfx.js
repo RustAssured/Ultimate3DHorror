@@ -19,7 +19,7 @@ const AnalogShader = {
     uGlitch: { value: 0 },      // reality-tear burst 0..1
     uAberration: { value: 0.0012 },
     uVignette: { value: 1.18 },
-    uGrain: { value: 0.05 },
+    uGrain: { value: 0.016 },
     uPulse: { value: 0 },       // heartbeat lens breathing
     uResolution: { value: new THREE.Vector2(1, 1) },
   },
@@ -100,18 +100,18 @@ const AnalogShader = {
       col *= 1.0 - vig*(0.4 + uDread*0.25);
       col -= dist*dist*uDread*0.14;
 
-      // --- film grain (animated) ---
+      // --- film grain (animated, subtle) ---
       float gr = hash(uv*uResolution + fract(t)*vec2(37.0,17.0));
-      col += (gr-0.5) * (uGrain + uDread*0.09);
+      col += (gr-0.5) * (uGrain + uDread*0.035);
 
-      // --- dust specks + occasional vertical scratches ---
-      float scWhen = hash1(floor(t*3.0));           // a scratch only some seconds
-      if (scWhen > 0.62) {
-        float scratchX = hash1(floor(t*3.0)+7.0);
-        if (abs(uv.x - scratchX) < 0.0011) col += 0.18 * (scWhen);
+      // --- rare vertical scratches + very sparse dust (kept subtle) ---
+      float scWhen = hash1(floor(t*2.0));           // a scratch only occasionally
+      if (scWhen > 0.8) {
+        float scratchX = hash1(floor(t*2.0)+7.0);
+        if (abs(uv.x - scratchX) < 0.0009) col += 0.12 * scWhen;
       }
-      float dust = hash(floor(uv*vec2(220.0,140.0)) + floor(t*18.0));
-      if (dust > 0.9975) col += 0.45;
+      float dust = hash(floor(uv*vec2(180.0,110.0)) + floor(t*10.0));
+      if (dust > 0.9994) col += 0.3;
 
       // --- reality tear: brief colour inversion flashes ---
       if (uGlitch > 0.6 && hash1(floor(t*24.0)) > 0.5) col = 1.0 - col;

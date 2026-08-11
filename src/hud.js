@@ -63,6 +63,8 @@ export class HUD {
     this._el('div', 'game-title', this.title, 'COSMIC&nbsp;FALL');
     this._el('div', 'game-sub', this.title, 'A descent into the falling dark');
     this.startBtn = this._el('button', 'btn primary', this.title, 'DESCEND');
+    const labLink = this._el('a', 'lab-link', this.title, 'Character Lab →');
+    labLink.href = './lab.html';
     this._el('div', 'title-controls', this.title,
       'WASD move · Mouse look · Shift sprint · F lantern · Esc pause<br>Best played with sound on, in the dark.');
     this._el('div', 'credit', this.title, 'A one-session procedural horror · no assets, no engine');

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { clamp, damp, lerp, TAU } from './util.js';
 import { loadGLTF, CharacterModel } from './models.js';
+import { textureLib } from './textures.js';
 
 export class Player {
   constructor(scene) {
@@ -48,8 +49,9 @@ export class Player {
 
   _buildRig() {
     // materials
-    const coat = this._mat(0x14171f, { roughness: 0.96 });
-    const coatLit = this._mat(0x20252f, { roughness: 0.92 });
+    const fab = textureLib().fabric.clone(); fab.needsUpdate = true; fab.repeat.set(3, 4);
+    const coat = this._mat(0x14171f, { roughness: 0.96, bumpMap: fab, bumpScale: 0.015 });
+    const coatLit = this._mat(0x20252f, { roughness: 0.92, bumpMap: fab, bumpScale: 0.012 });
     const leather = this._mat(0x2a2118, { roughness: 0.8, metalness: 0.05 });
     const metal = this._mat(0x39414e, { metalness: 0.75, roughness: 0.35 });
     const boot = this._mat(0x0c0e13, { roughness: 0.7 });
@@ -371,7 +373,17 @@ export class Player {
       stepped = true;
     }
 
-    // ---- lantern fuel + flicker ----
+    // ---- lantern ----
+    this._updateLantern(dt);
+
+    // ---- position third-person camera ----
+    if (!opts.freeCam) this._updateCamera(dt, camera, world);
+
+    return { stepped };
+  }
+
+  _updateLantern(dt) {
+    // fuel + flicker
     if (this.lanternOn) {
       this.fuel = Math.max(0, this.fuel - dt * 0.018);
       if (this.fuel <= 0) this.lanternOn = false;
@@ -385,31 +397,34 @@ export class Player {
     const gi = this.lanternOn ? this.flicker : 0;
     this.glow.intensity = 95 * gi;
     this.beam.intensity = 300 * gi;
-    // soft fill so the Warden silhouette always reads, brighter with lantern
     if (this.fill) this.fill.intensity = 14 + gi * 20;
     this.lanternCore.visible = this.lanternOn;
-    // keep the core a warm ember, not a white blob
     this.lanternCore.material.color.setRGB(gi, gi * 0.8, gi * 0.48);
 
-    // aim beam forward from lantern
     const lanternWorld = new THREE.Vector3();
     this.lantern.getWorldPosition(lanternWorld);
     const aimDir = new THREE.Vector3(Math.sin(this.facing), -0.18, Math.cos(this.facing)).normalize();
     this.beamTarget.position.copy(lanternWorld).addScaledVector(aimDir, 10);
 
-    // volumetric god-ray cone follows the beam
     if (this.beamCone) {
       this.beamCone.position.copy(lanternWorld);
       this.beamCone.quaternion.setFromUnitVectors(this._beamDown, aimDir);
-      this.beamCone.material.uniforms.uTime.value = (this.beamCone.material.uniforms.uTime.value + dt);
+      this.beamCone.material.uniforms.uTime.value += dt;
       this.beamCone.material.uniforms.uOpacity.value = this.lanternOn ? 0.42 * gi : 0;
       this.beamCone.visible = this.lanternOn && gi > 0.01;
     }
+  }
 
-    // ---- position third-person camera ----
-    if (!opts.freeCam) this._updateCamera(dt, camera, world);
-
-    return { stepped };
+  // Drive the rig in isolation (Character Lab): no world, no camera.
+  labUpdate(dt, { speed = 0, facing = Math.PI } = {}) {
+    this.speed = speed;
+    this.moving = speed > 0.4;
+    this.facing = facing;
+    this.rig.rotation.y = this.facing;
+    this.object.position.copy(this.pos);
+    if (this.model) this.model.update(dt, { moving: this.moving, sprinting: speed > 5 });
+    else this._animateRig(dt, 7.2);
+    this._updateLantern(dt);
   }
 
   _animateRig(dt, maxSpeed) {

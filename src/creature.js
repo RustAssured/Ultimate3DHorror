@@ -240,7 +240,16 @@ export class Stalker {
     this.group.position.copy(this.pos);
     this.group.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
 
-    // --- grotesque animation ---
+    this._animateVisual(dt);
+
+    if (this.state === STATE.REPELLED && this.materialize <= 0.02 && dist > 18) this.active = false;
+
+    const caught = dist < this.catchDist && this.materialize > 0.4;
+    return { caught };
+  }
+
+  // grotesque animation (shared by the game and the Character Lab)
+  _animateVisual(dt) {
     const vis = this.materialize;
     const flick = 0.7 + Math.sin(this._t * 20) * 0.3;
     this.fleshMat.uniforms.uTime.value = this._t;
@@ -259,7 +268,6 @@ export class Stalker {
       }
     }
 
-    // maw breathes open/shut
     if (this.maw) this.maw.scale.setScalar(1 + Math.sin(this._t * 1.8) * 0.12 * (0.4 + this.menace));
 
     this.eyeMat.opacity = vis;
@@ -273,11 +281,18 @@ export class Stalker {
 
     this.eyeLight.intensity = vis * (14 + this.menace * 34) * flick;
     this.group.visible = vis > 0.02;
+  }
 
-    if (this.state === STATE.REPELLED && this.materialize <= 0.02 && dist > 18) this.active = false;
-
-    const caught = dist < this.catchDist && vis > 0.4;
-    return { caught };
+  // Drive the creature in isolation (Character Lab).
+  labUpdate(dt, { materialize = 1, menace = 0.6, yaw = 0 } = {}) {
+    this._t += dt;
+    this.active = true;
+    this.materialize = materialize;
+    this.menace = menace;
+    this.pos.set(0, 0, 0);
+    this.group.position.set(0, 0, 0);
+    this.group.rotation.y = yaw;
+    this._animateVisual(dt);
   }
 
   distanceTo(player) {
