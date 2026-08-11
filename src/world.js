@@ -23,6 +23,7 @@ export class World {
     this._buildLights(scene);
     this._buildTerrain(scene);
     this._buildMonoliths(scene);
+    this._buildWreckage(scene);
     this._buildDebris(scene);
     this._buildSleeper(scene);
     this._buildParticles(scene);
@@ -230,6 +231,127 @@ export class World {
     }
     scene.add(group);
     this.monoliths = group;
+  }
+
+  // Wrecked research-station structures so the shard reads as a fallen place.
+  _buildWreckage(scene) {
+    const group = new THREE.Group();
+    const rust = new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.9, metalness: 0.5 });
+    const rustDark = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.95, metalness: 0.4 });
+    const panel = new THREE.MeshStandardMaterial({ color: 0x25454a, roughness: 0.8, metalness: 0.3 });
+    const concrete = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: 1, metalness: 0 });
+    const cableMat = new THREE.MeshStandardMaterial({ color: 0x0d0f12, roughness: 0.9 });
+
+    const onGround = (x, z) => this.heightAt(x, z);
+
+    // --- scattered girders (fallen and leaning I-beams) ---
+    for (let i = 0; i < 16; i++) {
+      const p = this.rng.disc(ISLAND_RADIUS - 12);
+      if (!this.inBounds(p.x, p.z)) continue;
+      const len = this.rng.float(3, 9);
+      const beam = new THREE.Group();
+      const web = new THREE.Mesh(new THREE.BoxGeometry(0.12, len, 0.5), i % 2 ? rust : rustDark);
+      const f1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, len, 0.1), rust); f1.position.z = 0.25;
+      const f2 = f1.clone(); f2.position.z = -0.25;
+      beam.add(web, f1, f2);
+      const y = onGround(p.x, p.z);
+      const fallen = this.rng.chance(0.7);
+      if (fallen) {
+        beam.rotation.z = Math.PI / 2 + this.rng.float(-0.3, 0.3);
+        beam.rotation.y = this.rng.float(0, TAU);
+        beam.position.set(p.x, y + 0.3, p.z);
+      } else {
+        beam.rotation.z = this.rng.float(-0.5, 0.5);
+        beam.position.set(p.x, y + len / 2 - 0.5, p.z);
+      }
+      group.add(beam);
+    }
+
+    // --- broken wall panels / bulkheads ---
+    for (let i = 0; i < 12; i++) {
+      const p = this.rng.disc(ISLAND_RADIUS - 10);
+      if (!this.inBounds(p.x, p.z)) continue;
+      const w = this.rng.float(1.5, 4), h = this.rng.float(1.5, 3.5);
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.2), this.rng.chance(0.5) ? panel : concrete);
+      const y = onGround(p.x, p.z);
+      wall.position.set(p.x, y + h / 2 - 0.4, p.z);
+      wall.rotation.y = this.rng.float(0, TAU);
+      wall.rotation.z = this.rng.float(-0.25, 0.25);
+      group.add(wall);
+      // a couple of bolt/rivet lines
+      if (this.rng.chance(0.5)) {
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.08, h * 0.9, 0.24), rust);
+        rib.position.copy(wall.position); rib.rotation.copy(wall.rotation);
+        rib.translateX(w * 0.35);
+        group.add(rib);
+      }
+    }
+
+    // --- railings (posts + top rail) with a drooping cable ---
+    for (let i = 0; i < 6; i++) {
+      const p = this.rng.disc(ISLAND_RADIUS - 14);
+      if (!this.inBounds(p.x, p.z)) continue;
+      const y = onGround(p.x, p.z);
+      const dir = this.rng.float(0, TAU);
+      const span = this.rng.float(2.5, 5);
+      const n = 3;
+      const posts = [];
+      for (let k = 0; k <= n; k++) {
+        const t = (k / n - 0.5) * span;
+        const px = p.x + Math.cos(dir) * t, pz = p.z + Math.sin(dir) * t;
+        const py = onGround(px, pz);
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.0, 6), rust);
+        post.position.set(px, py + 0.5, pz);
+        post.rotation.z = this.rng.float(-0.15, 0.15);
+        group.add(post);
+        posts.push(new THREE.Vector3(px, py + 1.0, pz));
+      }
+      // drooping cable through the post tops
+      const curve = new THREE.CatmullRomCurve3(posts.map((v, idx) => v.clone().setY(v.y - Math.sin((idx / n) * Math.PI) * 0.3)));
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.03, 5, false), cableMat);
+      group.add(tube);
+    }
+
+    // --- rubble piles ---
+    const rubbleGeo = [new THREE.BoxGeometry(1, 1, 1), new THREE.TetrahedronGeometry(0.7)];
+    for (let i = 0; i < 30; i++) {
+      const p = this.rng.disc(ISLAND_RADIUS - 6);
+      if (!this.inBounds(p.x, p.z)) continue;
+      const r = new THREE.Mesh(this.rng.pick(rubbleGeo), this.rng.chance(0.5) ? concrete : rustDark);
+      const s = this.rng.float(0.2, 0.7);
+      r.scale.set(s, s * this.rng.float(0.5, 1), s);
+      const y = onGround(p.x, p.z);
+      r.position.set(p.x, y + s * 0.2, p.z);
+      r.rotation.set(this.rng.float(0, TAU), this.rng.float(0, TAU), this.rng.float(0, TAU));
+      group.add(r);
+    }
+
+    // --- the downed hull: a large curved wreck as a landmark ---
+    {
+      const hp = this.rng.disc(ISLAND_RADIUS - 18);
+      const hull = new THREE.Group();
+      const shell = new THREE.Mesh(
+        new THREE.CylinderGeometry(3.2, 3.6, 10, 16, 1, true, 0, Math.PI * 1.2),
+        new THREE.MeshStandardMaterial({ color: 0x2b3138, roughness: 0.85, metalness: 0.45, side: THREE.DoubleSide })
+      );
+      shell.rotation.z = Math.PI / 2;
+      hull.add(shell);
+      // ribs
+      for (let k = -2; k <= 2; k++) {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(3.3, 0.12, 6, 16, Math.PI * 1.2), rust);
+        ring.rotation.y = Math.PI / 2; ring.position.x = k * 2.1;
+        hull.add(ring);
+      }
+      const y = onGround(hp.x, hp.z);
+      hull.position.set(hp.x, y + 1.6, hp.z);
+      hull.rotation.y = this.rng.float(0, TAU);
+      hull.rotation.x = 0.12;
+      group.add(hull);
+    }
+
+    group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    scene.add(group);
+    this.wreckage = group;
   }
 
   _buildDebris(scene) {

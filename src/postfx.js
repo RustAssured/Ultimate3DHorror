@@ -131,8 +131,8 @@ export class PostFX {
     this.composer = new EffectComposer(renderer);
     this.composer.addPass(new RenderPass(scene, camera));
 
-    // bloom doubles as film halation
-    this.bloom = new UnrealBloomPass(size.clone(), 0.85, 0.7, 0.68);
+    // bloom doubles as film halation (higher threshold so only true highlights blow)
+    this.bloom = new UnrealBloomPass(size.clone(), 0.55, 0.7, 0.82);
     this.composer.addPass(this.bloom);
 
     this.analog = new ShaderPass(AnalogShader);
@@ -181,7 +181,7 @@ export class PostFX {
     u.uGlitch.value = this._glitch;
 
     // halation/bloom breathes with dread
-    this.bloom.strength = 0.7 + dread * 0.6;
+    this.bloom.strength = 0.5 + dread * 0.5;
   }
 
   render() { this.composer.render(); }

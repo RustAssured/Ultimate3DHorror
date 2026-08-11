@@ -103,6 +103,17 @@ async function main() {
   await page.evaluate(() => window.__game.clearFreeCam());
   await sleep(200);
 
+  // --- environment showcase: lit wide view to inspect the wreckage set-dressing ---
+  await page.evaluate(() => {
+    const g = window.__game; const p = g.player.pos;
+    g.world.ambient.intensity = 12; g.world.moon.intensity = 8;
+    g.setFreeCam([p.x + 14, p.y + 10, p.z + 16], [p.x, p.y + 1, p.z - 6]);
+    g._debugSimulate(0.05);
+  });
+  await sleep(400);
+  await shot('10-environment');
+  await page.evaluate(() => { const g = window.__game; g.clearFreeCam(); g.world.ambient.intensity = 2.6; g.world.moon.intensity = 2.4; });
+
   // --- WIN path: collect all echoes, activate beacon, stand on it, simulate ---
   const winResult = await page.evaluate(() => {
     const g = window.__game;

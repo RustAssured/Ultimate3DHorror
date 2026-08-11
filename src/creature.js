@@ -72,58 +72,101 @@ export class Stalker {
       `,
     });
 
-    // core mass: a lumpy blob
-    const bodyGeo = new THREE.IcosahedronGeometry(1.0, 4);
-    const bp = bodyGeo.attributes.position;
-    for (let i = 0; i < bp.count; i++) {
-      const x = bp.getX(i), y = bp.getY(i), z = bp.getZ(i);
-      const len = Math.hypot(x, y, z);
-      const lump = 1 + Math.sin(x * 3) * 0.12 + Math.sin(y * 4 + 1) * 0.1 + Math.sin(z * 3.5) * 0.12;
-      bp.setXYZ(i, (x / len) * lump, (y / len) * lump * 1.35, (z / len) * lump);
-    }
-    bodyGeo.computeVertexNormals();
-    this.body = new THREE.Mesh(bodyGeo, this.fleshMat);
-    this.body.scale.setScalar(1.15);
+    const lumpy = (geo, amp) => {
+      const bp = geo.attributes.position;
+      for (let i = 0; i < bp.count; i++) {
+        const x = bp.getX(i), y = bp.getY(i), z = bp.getZ(i);
+        const len = Math.hypot(x, y, z) || 1;
+        const l = 1 + Math.sin(x * 3.1) * amp + Math.sin(y * 4.0 + 1) * amp * 0.8 + Math.sin(z * 3.5) * amp;
+        bp.setXYZ(i, (x / len) * len * l, (y / len) * len * l, (z / len) * len * l);
+      }
+      geo.computeVertexNormals();
+      return geo;
+    };
+
+    // ---- core mass: several overlapping lumpy flesh lobes ----
+    this.body = new THREE.Mesh(lumpy(new THREE.IcosahedronGeometry(1.0, 4), 0.14), this.fleshMat);
+    this.body.scale.set(1.2, 1.5, 1.2);
     this.body.position.y = 2.0;
     this.group.add(this.body);
-
-    // a hunched "head" lobe
-    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 3), this.fleshMat);
-    head.position.set(0, 3.05, 0.25);
-    this.group.add(head);
-
-    // writhing tentacle limbs
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * TAU;
-      const len = 1.6 + (i % 2) * 0.7;
-      const tGeo = new THREE.ConeGeometry(0.16, len, 6, 4, true);
-      tGeo.translate(0, -len / 2, 0);
-      const t = new THREE.Mesh(tGeo, this.fleshMat);
-      t.position.set(Math.cos(a) * 0.7, 1.7, Math.sin(a) * 0.7);
-      t.userData = { a, phase: Math.random() * TAU, len };
-      this.group.add(t);
-      this.tentacles.push(t);
+    const lobeData = [[0.6, -0.5, 2.3, 0.4], [-0.55, 0.4, 1.6, 0.45], [0.3, 0.5, 2.7, 0.5], [-0.3, -0.4, 2.5, 0.38]];
+    for (const [lx, lz, ly, r] of lobeData) {
+      const lobe = new THREE.Mesh(lumpy(new THREE.IcosahedronGeometry(r, 3), 0.2), this.fleshMat);
+      lobe.position.set(lx, ly, lz);
+      this.group.add(lobe);
     }
 
-    // many glowing eyes scattered over the mass
+    // ---- gaping maw at the front: dark throat ringed with teeth ----
+    const mawGroup = new THREE.Group();
+    mawGroup.position.set(0, 2.15, 0.95);
+    const throat = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0x120206 }));
+    throat.scale.set(1, 1, 0.6);
+    mawGroup.add(throat);
+    const toothMat = new THREE.MeshStandardMaterial({ color: 0xcabfae, roughness: 0.55 });
+    const teethN = 14;
+    for (let i = 0; i < teethN; i++) {
+      const a = (i / teethN) * TAU;
+      const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 5), toothMat);
+      tooth.position.set(Math.cos(a) * 0.4, Math.sin(a) * 0.4, 0.12);
+      tooth.rotation.z = -a + Math.PI / 2;
+      tooth.rotation.x = -0.5;
+      mawGroup.add(tooth);
+    }
+    this.maw = mawGroup;
+    this.group.add(mawGroup);
+
+    // ---- segmented, curling tentacle limbs ----
+    const SEG = 4;
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * TAU;
+      const baseR = 0.7 + Math.random() * 0.2;
+      const root = new THREE.Group();
+      root.position.set(Math.cos(a) * baseR, 1.5, Math.sin(a) * baseR);
+      root.rotation.y = -a;
+      let parent = root;
+      const segs = [];
+      for (let s = 0; s < SEG; s++) {
+        const segLen = 0.5 - s * 0.07;
+        const segR = 0.14 - s * 0.025;
+        const joint = new THREE.Group();
+        joint.position.y = s === 0 ? -0.1 : -(0.5 - (s - 1) * 0.07);
+        const geo = new THREE.CylinderGeometry(segR * 0.7, segR, segLen, 7);
+        geo.translate(0, -segLen / 2, 0);
+        const mesh = new THREE.Mesh(geo, this.fleshMat);
+        joint.add(mesh);
+        parent.add(joint);
+        parent = joint;
+        segs.push(joint);
+      }
+      this.group.add(root);
+      this.tentacles.push({ root, segs, a, phase: Math.random() * TAU });
+    }
+
+    // ---- clustered glowing eyes ----
     this.eyeMat = new THREE.MeshBasicMaterial({ color: 0xffe23a, transparent: true, opacity: 0 });
-    for (let i = 0; i < 9; i++) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.07 + Math.random() * 0.05, 8, 8), this.eyeMat);
+    for (let i = 0; i < 12; i++) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.06 + Math.random() * 0.06, 10, 10), this.eyeMat);
       const a = Math.random() * TAU, b = Math.random() * Math.PI;
-      const r = 1.25;
-      e.position.set(Math.sin(b) * Math.cos(a) * r, 2.0 + Math.cos(b) * r * 1.2, Math.sin(b) * Math.sin(a) * r + 0.2);
+      const r = 1.2;
+      e.position.set(Math.sin(b) * Math.cos(a) * r, 2.0 + Math.cos(b) * r * 1.4, Math.sin(b) * Math.sin(a) * r * 0.7 + 0.3);
       e.userData = { blink: Math.random() * 5 };
       this.group.add(e);
       this.eyes.push(e);
     }
-    // the big central eye
-    this.mainEye = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12),
+    // the big central eye above the maw
+    this.mainEye = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16),
       new THREE.MeshBasicMaterial({ color: 0xff3b24, transparent: true, opacity: 0 }));
-    this.mainEye.position.set(0, 3.05, 0.75);
+    this.mainEye.position.set(0, 2.85, 0.7);
     this.group.add(this.mainEye);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0x1a0000, transparent: true, opacity: 0 }));
+    pupil.position.set(0, 2.85, 0.94);
+    this.group.add(pupil);
+    this.pupil = pupil;
 
     // self-illumination so it reads in pitch black
-    this.eyeLight = new THREE.PointLight(0xff2a5a, 0, 11, 2);
+    this.eyeLight = new THREE.PointLight(0xff2a5a, 0, 12, 2);
     this.eyeLight.position.y = 2.4;
     this.group.add(this.eyeLight);
   }
@@ -203,13 +246,22 @@ export class Stalker {
     this.fleshMat.uniforms.uTime.value = this._t;
     this.fleshMat.uniforms.uMenace.value = this.menace;
     this.fleshMat.uniforms.uMat.value = vis;
-    this.body.rotation.z = Math.sin(this._t * 1.7) * 0.06;
-    this.body.scale.y = 1.15 + Math.sin(this._t * 3.0) * 0.06 * (0.5 + this.menace); // breathing
+    this.body.rotation.z = Math.sin(this._t * 1.7) * 0.05;
+    this.body.scale.set(1.2, 1.5 + Math.sin(this._t * 3.0) * 0.08 * (0.5 + this.menace), 1.2); // breathing
 
+    // segmented tentacles curl as a travelling wave
+    const curl = 0.35 + this.menace * 0.6;
     for (const t of this.tentacles) {
-      t.rotation.x = Math.sin(this._t * 2.4 + t.userData.phase) * (0.4 + this.menace * 0.5);
-      t.rotation.z = Math.cos(this._t * 1.9 + t.userData.phase) * (0.35 + this.menace * 0.5);
+      for (let s = 0; s < t.segs.length; s++) {
+        const w = Math.sin(this._t * 2.6 + t.phase + s * 0.7);
+        t.segs[s].rotation.x = 0.25 + w * curl;
+        t.segs[s].rotation.z = Math.cos(this._t * 2.1 + t.phase + s * 0.5) * curl * 0.7;
+      }
     }
+
+    // maw breathes open/shut
+    if (this.maw) this.maw.scale.setScalar(1 + Math.sin(this._t * 1.8) * 0.12 * (0.4 + this.menace));
+
     this.eyeMat.opacity = vis;
     for (const e of this.eyes) {
       const bl = Math.sin(this._t * 2.0 + e.userData.blink);
@@ -217,6 +269,7 @@ export class Stalker {
     }
     this.mainEye.material.opacity = vis;
     this.mainEye.scale.setScalar(1 + Math.sin(this._t * 4) * 0.08);
+    if (this.pupil) this.pupil.material.opacity = vis;
 
     this.eyeLight.intensity = vis * (14 + this.menace * 34) * flick;
     this.group.visible = vis > 0.02;

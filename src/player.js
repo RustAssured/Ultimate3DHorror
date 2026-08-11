@@ -47,70 +47,118 @@ export class Player {
   }
 
   _buildRig() {
-    const skin = this._mat(0x9a8f86, { roughness: 0.85 });
-    const cloak = this._mat(0x161a24, { roughness: 0.95 });
-    const cloakLit = this._mat(0x222838, { roughness: 0.9 });
-    const metal = this._mat(0x3a4150, { metalness: 0.6, roughness: 0.4 });
+    // materials
+    const coat = this._mat(0x14171f, { roughness: 0.96 });
+    const coatLit = this._mat(0x20252f, { roughness: 0.92 });
+    const leather = this._mat(0x2a2118, { roughness: 0.8, metalness: 0.05 });
+    const metal = this._mat(0x39414e, { metalness: 0.75, roughness: 0.35 });
+    const boot = this._mat(0x0c0e13, { roughness: 0.7 });
+    const skin = this._mat(0x8f847a, { roughness: 0.85 });
+    const dark = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    this._mats = { coat, coatLit, leather, metal, boot, skin };
 
-    // hips/root at y=0 is feet; build upward
     const body = new THREE.Group();
     this.rig.add(body);
     this.bodyGroup = body;
 
-    // legs
-    this.legL = this._limb(0.22, 0.85, cloak); this.legL.position.set(-0.18, 0.85, 0);
-    this.legR = this._limb(0.22, 0.85, cloak); this.legR.position.set(0.18, 0.85, 0);
-    body.add(this.legL, this.legR);
+    // ---------- legs: hip -> knee -> foot (two-bone) ----------
+    const mkLeg = (side) => {
+      const hip = new THREE.Group();
+      hip.position.set(0.16 * side, 0.92, 0);
+      // thigh
+      const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.34, 4, 8), coat);
+      thigh.position.y = -0.25; hip.add(thigh);
+      // knee joint
+      const knee = new THREE.Group();
+      knee.position.y = -0.46; hip.add(knee);
+      const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.34, 4, 8), coat);
+      shin.position.y = -0.24; knee.add(shin);
+      // boot
+      const foot = new THREE.Group(); foot.position.y = -0.44; knee.add(foot);
+      const bootMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.34), boot);
+      bootMesh.position.set(0, -0.02, 0.06); foot.add(bootMesh);
+      body.add(hip);
+      return { hip, knee, foot };
+    };
+    const L = mkLeg(-1), R = mkLeg(1);
+    this.hipL = L.hip; this.kneeL = L.knee; this.footL = L.foot;
+    this.hipR = R.hip; this.kneeR = R.knee; this.footR = R.foot;
 
-    // torso (tapered)
-    const torsoGeo = new THREE.CylinderGeometry(0.26, 0.34, 0.75, 10);
-    const torso = new THREE.Mesh(torsoGeo, cloakLit);
-    torso.position.y = 1.28;
-    body.add(torso);
+    // ---------- pelvis / coat skirt ----------
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.34, 0.5, 12, 1, true), coat);
+    skirt.position.y = 1.06; body.add(skirt);
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.035, 8, 20), leather);
+    belt.position.y = 1.02; belt.rotation.x = Math.PI / 2; body.add(belt);
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.03), metal);
+    buckle.position.set(0, 1.02, 0.26); body.add(buckle);
 
-    // hooded shoulders / cloak drape
-    const shoulderGeo = new THREE.SphereGeometry(0.42, 12, 8, 0, TAU, 0, Math.PI * 0.6);
-    const shoulders = new THREE.Mesh(shoulderGeo, cloak);
-    shoulders.position.y = 1.62; shoulders.scale.set(1, 0.7, 1.05);
-    body.add(shoulders);
+    // ---------- torso / chest ----------
+    const chest = new THREE.Group(); chest.position.y = 1.28; body.add(chest); this.chest = chest;
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.3, 0.62, 12), coatLit);
+    chest.add(torso);
+    // coat lapels (two angled boxes)
+    for (const s of [-1, 1]) {
+      const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.04), coat);
+      lapel.position.set(0.08 * s, 0.02, 0.2); lapel.rotation.z = 0.18 * s; chest.add(lapel);
+    }
+    // strap across chest + small buckles
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.6, 0.03), leather);
+    strap.position.set(0.02, 0, 0.22); strap.rotation.z = 0.5; chest.add(strap);
 
-    // head + hood
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 12), skin);
-    head.position.y = 1.86;
-    body.add(head);
-    const hood = new THREE.Mesh(new THREE.ConeGeometry(0.27, 0.42, 12, 1, true), cloak);
-    hood.position.y = 1.9; hood.rotation.x = 0.12;
-    body.add(hood);
-    // shadow under hood so face reads as dark void
-    const faceGeo = new THREE.CircleGeometry(0.13, 12);
-    const faceMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const face = new THREE.Mesh(faceGeo, faceMat);
-    face.position.set(0, 1.86, 0.16);
-    body.add(face);
-    this.head = head;
+    // ---------- shoulders / pauldrons ----------
+    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 10, 0, TAU, 0, Math.PI * 0.55), coat);
+    shoulders.position.y = 1.6; shoulders.scale.set(1.15, 0.7, 1.05); body.add(shoulders);
+    for (const s of [-1, 1]) {
+      const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 8), leather);
+      pauldron.position.set(0.3 * s, 1.56, 0); pauldron.scale.set(1, 0.7, 1); body.add(pauldron);
+    }
 
-    // arms
-    this.armL = this._limb(0.16, 0.72, cloak); this.armL.position.set(-0.34, 1.58, 0);
-    this.armR = this._limb(0.16, 0.72, cloak); this.armR.position.set(0.34, 1.58, 0);
-    body.add(this.armL, this.armR);
+    // ---------- head + hood + respirator ----------
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 14), skin);
+    head.position.y = 1.84; head.scale.set(1, 1.15, 1); body.add(head); this.head = head;
+    // draped hood: a lathe-like shell open at the front
+    const hood = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 12, 0, TAU, 0, Math.PI * 0.62), coat);
+    hood.position.set(0, 1.86, -0.02); hood.scale.set(1.05, 1.2, 1.15); body.add(hood); this.hood = hood;
+    const hoodPeak = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.3, 12), coat);
+    hoodPeak.position.set(0, 2.02, -0.08); hoodPeak.rotation.x = -0.3; body.add(hoodPeak);
+    // dark void where the face is
+    const face = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), dark);
+    face.position.set(0, 1.83, 0.06); face.scale.set(1, 1.1, 0.7); body.add(face);
+    // respirator: a small cylinder + two glowing filter eyes
+    const mask = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.08, 10), metal);
+    mask.position.set(0, 1.78, 0.13); mask.rotation.x = Math.PI / 2; body.add(mask);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x7fe3ff });
+    for (const s of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 8), eyeMat);
+      eye.position.set(0.05 * s, 1.86, 0.12); body.add(eye);
+    }
 
-    // a belt lantern-ring / detail
-    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.04, 8, 16), metal);
-    belt.position.y = 1.0; belt.rotation.x = Math.PI / 2;
-    body.add(belt);
+    // ---------- arms: shoulder -> elbow -> hand (two-bone) ----------
+    const mkArm = (side) => {
+      const shoulder = new THREE.Group();
+      shoulder.position.set(0.3 * side, 1.56, 0);
+      const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.28, 4, 8), coat);
+      upper.position.y = -0.19; shoulder.add(upper);
+      const elbow = new THREE.Group(); elbow.position.y = -0.36; shoulder.add(elbow);
+      const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.062, 0.26, 4, 8), coatLit);
+      fore.position.y = -0.17; elbow.add(fore);
+      const hand = new THREE.Group(); hand.position.y = -0.34; elbow.add(hand);
+      const palm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 0.05), leather);
+      hand.add(palm);
+      body.add(shoulder);
+      return { shoulder, elbow, hand };
+    };
+    const AL = mkArm(-1), AR = mkArm(1);
+    this.shoulderL = AL.shoulder; this.elbowL = AL.elbow; this.handL = AL.hand;
+    this.shoulderR = AR.shoulder; this.elbowR = AR.elbow; this.handR = AR.hand;
 
-    this.rig.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-  }
+    // ---------- cape ----------
+    const capeGeo = new THREE.PlaneGeometry(0.6, 0.95, 6, 8);
+    this.cape = new THREE.Mesh(capeGeo, new THREE.MeshStandardMaterial({ color: 0x0f1219, roughness: 0.98, side: THREE.DoubleSide }));
+    this.cape.position.set(0, 1.5, -0.16); body.add(this.cape);
+    this._capeGeo = capeGeo;
 
-  // a pivoting limb: pivot at top, geometry hangs down
-  _limb(radius, length, mat) {
-    const pivot = new THREE.Group();
-    const geo = new THREE.CapsuleGeometry(radius, length - radius * 2, 4, 8);
-    const m = new THREE.Mesh(geo, mat);
-    m.position.y = -length / 2;
-    pivot.add(m);
-    pivot.userData.length = length;
-    return pivot;
+    this.rig.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
   }
 
   _buildLantern() {
@@ -128,7 +176,7 @@ export class Player {
     this.lanternCore = core;
 
     // warm glow bulb (physical units: candela)
-    this.glow = new THREE.PointLight(0xffcaa0, 140, 40, 1.7);
+    this.glow = new THREE.PointLight(0xffcaa0, 95, 38, 1.7);
     g.add(this.glow);
 
     // directional beam (flashlight) — parented to lantern, aimed forward
@@ -143,9 +191,9 @@ export class Player {
     this.beam.target = this.beamTarget;
     g.add(this.beam);
 
-    // mount lantern to right hand (end of right arm)
-    this.armR.add(g);
-    g.position.set(0, -0.72, 0.12);
+    // mount lantern in the right hand
+    this.handR.add(g);
+    g.position.set(0.03, -0.12, 0.05);
     this.lantern = g;
 
     this._buildBeamCone();
@@ -311,17 +359,7 @@ export class Player {
       // loaded glTF character: drive its animation state machine
       this.model.update(dt, { moving: this.moving, sprinting });
     } else {
-      // procedural rig: walk cycle + idle sway
-      const stride = clamp(this.speed / maxSpeed, 0, 1);
-      this._walkPhase += dt * (6 + this.speed * 1.6);
-      const swing = Math.sin(this._walkPhase) * (0.15 + stride * 0.6);
-      const swing2 = Math.sin(this._walkPhase + Math.PI) * (0.15 + stride * 0.6);
-      this.legL.rotation.x = swing;
-      this.legR.rotation.x = swing2;
-      this.armL.rotation.x = swing2 * 0.7;
-      this.armR.rotation.x = swing * 0.4; // damped: holding lantern
-      const bob = Math.abs(Math.sin(this._walkPhase)) * stride * 0.06 + Math.sin(this.object.userData.t = (this.object.userData.t || 0) + dt * 1.6) * 0.01;
-      this.bodyGroup.position.y = bob;
+      this._animateRig(dt, maxSpeed);
     }
 
     // footstep detection
@@ -345,12 +383,13 @@ export class Player {
       ? (lowFuel ? 0.35 + Math.random() * 0.65 : 0.86 + Math.random() * 0.14)
       : 0;
     const gi = this.lanternOn ? this.flicker : 0;
-    this.glow.intensity = 140 * gi;
-    this.beam.intensity = 320 * gi;
+    this.glow.intensity = 95 * gi;
+    this.beam.intensity = 300 * gi;
     // soft fill so the Warden silhouette always reads, brighter with lantern
-    if (this.fill) this.fill.intensity = 14 + gi * 22;
+    if (this.fill) this.fill.intensity = 14 + gi * 20;
     this.lanternCore.visible = this.lanternOn;
-    this.lanternCore.material.color.setScalar(0.6 + gi * 0.4);
+    // keep the core a warm ember, not a white blob
+    this.lanternCore.material.color.setRGB(gi, gi * 0.8, gi * 0.48);
 
     // aim beam forward from lantern
     const lanternWorld = new THREE.Vector3();
@@ -371,6 +410,52 @@ export class Player {
     if (!opts.freeCam) this._updateCamera(dt, camera, world);
 
     return { stepped };
+  }
+
+  _animateRig(dt, maxSpeed) {
+    const stride = clamp(this.speed / (maxSpeed || 1), 0, 1);
+    this._walkPhase += dt * (5 + this.speed * 1.7);
+    const p = this._walkPhase;
+    this._idleT = (this._idleT || 0) + dt;
+    const it = this._idleT;
+    const legAmp = 0.12 + stride * 0.75;
+    const kneeAmp = 0.25 + stride * 1.5;
+
+    // legs (hip swing + knee bend to clear the ground)
+    this.hipL.rotation.x = Math.sin(p) * legAmp;
+    this.hipR.rotation.x = Math.sin(p + Math.PI) * legAmp;
+    this.kneeL.rotation.x = Math.max(0, -Math.sin(p)) * kneeAmp;
+    this.kneeR.rotation.x = Math.max(0, -Math.sin(p + Math.PI)) * kneeAmp;
+    this.footL.rotation.x = -this.hipL.rotation.x * 0.4;
+    this.footR.rotation.x = -this.hipR.rotation.x * 0.4;
+
+    // left arm swings; right arm holds the lantern raised in front
+    const armAmp = 0.1 + stride * 0.55;
+    this.shoulderL.rotation.x = Math.sin(p + Math.PI) * armAmp;
+    this.elbowL.rotation.x = -(0.25 + Math.max(0, Math.sin(p + Math.PI)) * 0.5);
+    const rSway = Math.sin(p) * 0.05 * stride + Math.sin(it * 1.6) * 0.02;
+    this.shoulderR.rotation.set(-0.62 + rSway, 0, -0.12);
+    this.elbowR.rotation.x = -1.0 + rSway * 0.5;
+
+    // torso: forward lean + counter-rotation + breathing
+    this.chest.rotation.y = Math.sin(p) * 0.06 * stride;
+    this.chest.rotation.x = 0.03 + stride * 0.06;
+    this.chest.scale.y = 1 + Math.sin(it * 1.8) * 0.02;
+
+    // body bob
+    this.bodyGroup.position.y = Math.abs(Math.sin(p)) * stride * 0.05 + Math.sin(it * 1.6) * 0.008;
+
+    // hood + cape sway (with a light cloth wave on the cape)
+    this.hood.rotation.x = 0.04 + Math.sin(it * 1.2) * 0.025;
+    this.cape.rotation.x = -(0.12 + stride * 0.5) + Math.max(0, Math.sin(p * 2)) * 0.06 * stride;
+    this.cape.rotation.z = Math.sin(it * 1.5) * 0.04;
+    const cp = this._capeGeo.attributes.position;
+    for (let i = 0; i < cp.count; i++) {
+      const x = cp.getX(i), y = cp.getY(i);
+      const wave = Math.sin(it * 3 + x * 6 + y * 3) * 0.02 * (0.5 - y); // more at hem
+      cp.setZ(i, wave);
+    }
+    cp.needsUpdate = true;
   }
 
   _updateCamera(dt, camera, world) {
