@@ -4,6 +4,8 @@
 // that is a cavity, and multi-scale wet-skin shading. No external assets.
 import * as THREE from 'three';
 import { RNG, clamp, damp, TAU } from './util.js';
+import { loadGLTF, normalizeToHeight, patchLivingFlesh } from './models.js';
+import { MeshyRig, MONSTER2_RIG } from './meshyrig.js';
 
 const STATE = { DORMANT: 0, STALK: 1, HUNT: 2, REPELLED: 3 };
 
@@ -40,6 +42,40 @@ export class Stalker {
     this._build();
     scene.add(this.group);
     this.group.visible = false;
+
+    // optional: use a loaded Meshy body (+ rig) as the creature instead of the
+    // procedural organism. Configured via window.COSMIC_CONFIG.stalkerModel.
+    this.usingMeshy = false; this._meshyMats = []; this._livingU = [];
+    const mp = (typeof window !== 'undefined' && window.COSMIC_CONFIG && window.COSMIC_CONFIG.stalkerModel);
+    if (mp) this._loadMeshy(mp);
+  }
+
+  async _loadMeshy(path) {
+    try {
+      const gltf = await loadGLTF(path);
+      const { root } = normalizeToHeight(gltf.scene, 3.4);
+      root.position.y = 0; // stand on the ground
+      root.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = true; o.frustumCulled = false;
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          mats.forEach((m) => { m.transparent = true; this._meshyMats.push(m); this._livingU.push(patchLivingFlesh(m)); });
+        }
+      });
+      // dim the bright bake so it reads as a dark creature revealed by the lantern
+      this._livingU.forEach((u) => { u.uDark.value = 0.5; });
+      this.group.add(root);
+      this.meshyBody = root;
+      this.meshyRig = new MeshyRig(root, MONSTER2_RIG);
+      // hide the procedural organism
+      this.body.visible = false;
+      if (this.mouth) this.mouth.visible = false;
+      for (const e of this.eyes) e.group.visible = false;
+      for (const t of this.tentacles) t.mesh.visible = false;
+      this.usingMeshy = true;
+    } catch (e) {
+      console.warn('Stalker model failed to load, using procedural creature:', e.message);
+    }
   }
 
   // ---- physically-based wet-flesh material (patched MeshPhysicalMaterial) ----
@@ -336,6 +372,19 @@ export class Stalker {
   _animateVisual(dt) {
     const vis = this.materialize;
     const flick = 0.7 + Math.sin(this._t * 20) * 0.3;
+
+    // --- Meshy body path: drive the loaded model + rig instead of procedural ---
+    if (this.usingMeshy && this.meshyRig) {
+      const t = this._t;
+      for (const u of this._livingU) { u.uTime.value = t; u.uMenace.value = this.menace; u.uMat.value = vis; }
+      for (const m of this._meshyMats) m.opacity = vis;
+      this.meshyRig.update(dt, { menace: this.menace, materialize: vis, lookTarget: this._lookTarget });
+      this.throatGlow.intensity = vis * (0.3 + this.menace * 1.4) * (0.85 + Math.sin(t * 5) * 0.15);
+      this.eyeLight.intensity = vis * (0.6 + this.menace * 2.6) * flick;
+      this.group.visible = vis > 0.02;
+      return;
+    }
+
     this._setFleshUniform('uTime', this._t);
     this._setFleshUniform('uMenace', this.menace);
     this._setFleshUniform('uMat', vis);

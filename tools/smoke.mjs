@@ -160,7 +160,7 @@ async function main() {
   await page.evaluate(() => {
     const g = window.__game; const s = g.stalker.pos;
     const THREE = g.player.glow.constructor; // PointLight ctor
-    const L = new THREE(0xffffff, 45, 14, 2);
+    const L = new THREE(0xffffff, 22, 14, 2);
     L.position.set(s.x + 2, s.y + 3, s.z + 3);
     g.scene.add(L); g._diagRevealLight = L;
     g._debugSimulate(0.02);

@@ -22,6 +22,7 @@ export function patchLivingFlesh(material, opts = {}) {
   const u = {
     uTime: { value: 0 }, uMenace: { value: 0.5 }, uMat: { value: 1 },
     uWet: { value: opts.wet ?? 1 }, uGross: { value: opts.gross ?? 1 },
+    uDark: { value: opts.dark ?? 1 },   // overall albedo scale (dim it in-game)
     uVein: { value: new THREE.Color(opts.vein || 0x4a0006) },
   };
   material.transparent = true;
@@ -36,7 +37,7 @@ export function patchLivingFlesh(material, opts = {}) {
       float writhe = fb3(position*2.0 + vec3(0.0,0.0,uTime*0.25)) * 0.02 * (0.4 + uMenace);
       transformed += normal * (breathe + writhe);
     `);
-    shader.fragmentShader = `uniform float uTime,uMenace,uMat,uWet,uGross; uniform vec3 uVein; varying vec3 vLp;\n${NOISE3}\n` + shader.fragmentShader;
+    shader.fragmentShader = `uniform float uTime,uMenace,uMat,uWet,uGross,uDark; uniform vec3 uVein; varying vec3 vLp;\n${NOISE3}\n` + shader.fragmentShader;
     // wet glisten: lower roughness in slowly-moving wet zones
     shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', `
       #include <roughnessmap_fragment>
@@ -50,6 +51,7 @@ export function patchLivingFlesh(material, opts = {}) {
       diffuseColor.rgb *= mix(1.0, 0.62, grime * uGross * uMenace);
       float blood = smoothstep(0.45, 0.9, fb3(vLp*8.0 + 1.0));
       diffuseColor.rgb += uVein * blood * uGross * (0.2 + uMenace*0.8);
+      diffuseColor.rgb *= uDark;
       diffuseColor.a *= uMat;
     `);
     // subsurface backscatter rim + throbbing vein glow
