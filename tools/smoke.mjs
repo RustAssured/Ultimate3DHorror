@@ -48,7 +48,7 @@ async function main() {
   page.on('console', (m) => { if (m.type() === 'error') errors.push('[console] ' + m.text()); });
   page.on('pageerror', (e) => errors.push('[pageerror] ' + e.message));
 
-  const shot = async (name) => { await page.screenshot({ path: path.join(OUT, name + '.png') }); };
+  const shot = async (name) => { await page.screenshot({ path: path.join(OUT, name + '.png'), timeout: 60000 }); };
   const state = async () => page.evaluate(() => window.__game && window.__game.state);
   const info = async () => page.evaluate(() => {
     const g = window.__game; if (!g) return null;

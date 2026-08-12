@@ -98,7 +98,8 @@ export class CharacterModel {
   constructor(gltf, { targetHeight = 1.9, clips = {} } = {}) {
     const { root } = normalizeToHeight(gltf.scene, targetHeight);
     this.object = root;                 // add this to the scene / player rig
-    this.object.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+    // skinned-mesh shadow casting is very expensive on CPU renderers; skip it
+    this.object.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
 
     this.mixer = new THREE.AnimationMixer(gltf.scene);
     this.actions = {};
@@ -110,30 +111,38 @@ export class CharacterModel {
       this.actions[clip.name] = this.mixer.clipAction(clip);
     }
     // if no explicit mapping, guess by common names
-    const names = gltf.animations.map((c) => c.name.toLowerCase());
     const find = (kw) => gltf.animations.find((c) => c.name.toLowerCase().includes(kw));
+    this.hasIdle = !!find('idle');
     if (!this.clipMap.idle) this.clipMap.idle = (find('idle') || gltf.animations[0] || {}).name || null;
-    if (!this.clipMap.walk) this.clipMap.walk = (find('walk') || {}).name || this.clipMap.idle;
+    if (!this.clipMap.walk) this.clipMap.walk = (find('walk') || find('run') || gltf.animations[0] || {}).name || this.clipMap.idle;
     if (!this.clipMap.run) this.clipMap.run = (find('run') || {}).name || this.clipMap.walk;
 
-    this.play('idle');
+    this.play(this.hasIdle ? 'idle' : 'walk');
   }
 
   play(state) {
     const name = this.clipMap[state];
     if (!name || !this.actions[name] || this.current === name) return;
     const next = this.actions[name];
-    if (this.current && this.actions[this.current]) {
-      this.actions[this.current].fadeOut(0.2);
-    }
+    if (this.current && this.actions[this.current]) this.actions[this.current].fadeOut(0.2);
     next.reset().fadeIn(0.2).play();
     this.current = name;
   }
 
   // drive from the controller each frame
   update(dt, { moving, sprinting } = {}) {
-    if (moving) this.play(sprinting ? 'run' : 'walk');
-    else this.play('idle');
+    if (moving) {
+      this.play(sprinting ? 'run' : 'walk');
+      const a = this.actions[this.current];
+      if (a) { a.paused = false; a.timeScale = sprinting ? 1.5 : 1.0; }
+    } else if (this.hasIdle) {
+      this.play('idle');
+    } else {
+      // single-clip model (e.g. only a walk cycle): freeze it when standing still
+      this.play('walk');
+      const a = this.actions[this.current];
+      if (a) a.paused = true;
+    }
     this.mixer.update(dt);
   }
 

@@ -76,7 +76,7 @@ export class MeshyRig {
         if (holes.length) {
           // eye = the highest large hole that faces forward; sockets = the rest
           const eyeCand = holes.filter((h) => h.c.y > 1.4 && h.dir.z > 0.2).sort((a, b) => b.c.y - a.c.y)[0] || holes[0];
-          const sockets = holes.filter((h) => h !== eyeCand && h.r > 0.09).slice(0, 10);
+          const sockets = holes.filter((h) => h !== eyeCand && h.r > 0.09).slice(0, 6);
           this.config = {
             eye: { pos: [eyeCand.c.x, eyeCand.c.y, eyeCand.c.z], dir: [eyeCand.dir.x, eyeCand.dir.y, eyeCand.dir.z], size: Math.max(0.16, eyeCand.r * 0.92) },
             sockets: sockets.map((h) => ({ pos: [h.c.x, h.c.y, h.c.z], dir: [h.dir.x, h.dir.y, h.dir.z], r: h.r })),
@@ -125,7 +125,7 @@ export class MeshyRig {
       }
       geo.setIndex(idx);
       const mesh = new THREE.Mesh(geo, this._fleshMat);
-      mesh.castShadow = true; mesh.frustumCulled = false;
+      mesh.castShadow = false; mesh.frustumCulled = false;
       this.parent.add(mesh);
       this.tentacles.push({ nodes, mesh, geo, origin, outDir, len, phase: Math.random() * TAU, side: new THREE.Vector3(), RINGS, RADIAL, NODES, baseR });
     }

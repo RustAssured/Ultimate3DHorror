@@ -57,7 +57,7 @@ export class Stalker {
       root.position.y = 0; // stand on the ground
       root.traverse((o) => {
         if (o.isMesh) {
-          o.castShadow = true; o.frustumCulled = false;
+          o.castShadow = false; o.frustumCulled = false;
           const mats = Array.isArray(o.material) ? o.material : [o.material];
           mats.forEach((m) => { m.transparent = true; this._meshyMats.push(m); this._livingU.push(patchLivingFlesh(m)); });
         }
