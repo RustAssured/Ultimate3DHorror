@@ -66,11 +66,27 @@ live against the procedural one:
 3. Open the Lab → **MONSTER**; a **BODY: PROCEDURAL / MESHY** toggle appears.
 
 Recommended: keep Meshy's **baked PBR** (the eye + mouth are baked into the
-texture — gorgeous) and let the Lab layer the procedural life on top
-(breathing, materialize fade) with the procedural tentacles re-attached around
-it. Scale/orientation is auto-normalised to ~3.4 units tall; exact fit + a
-"wet-shader instead of baked" option are tuned by hand once the file is in.
-`.glb` is the right format — no need to convert to OBJ/FBX.
+texture — gorgeous) and let the rig layer the procedural life on top
+(breathing, materialize fade, wet/veined living-skin). Scale/orientation is
+auto-normalised to ~3.4 units tall. `.glb` is the right format — no need to
+convert to OBJ/FBX.
+
+### Tentacle sockets + eye: model them as REAL HOLES for automatic rigging
+
+The rig can place tentacles and the eye **automatically and exactly, with no
+markers** — as long as the sockets are actual openings in the mesh (delete the
+polygons so the tube ends and the eye socket are open boundaries, e.g. in
+Blender). At load, `detectHoles()` (src/meshyrig.js) welds the vertices, finds
+every open boundary loop, and computes each hole's centre, outward axis and
+radius in model space. The highest forward-facing hole becomes the **eye**; the
+lower holes become **tentacle sockets**. Each tentacle grows *out of* its hole —
+its base radius is matched to the hole and recessed slightly so it flows out
+instead of clipping through the rim.
+
+- **Do:** open the tentacle tubes and the eye socket (real holes).
+- **Don't:** leave them as closed dents — then topology can't locate them and
+  placement falls back to hand-tuned anchors.
+- The mouth can stay closed/baked (it isn't used as a socket).
 
 ## Formats supported
 

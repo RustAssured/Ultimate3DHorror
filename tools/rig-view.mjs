@@ -37,7 +37,7 @@ async function main() {
   page.on('pageerror', (e) => errors.push(e.message));
   const shot = (n) => page.screenshot({ path: path.join(OUT, n + '.png') });
 
-  await page.addInitScript((dbg) => { window.LAB_MONSTER_MODEL = '/assets/models/monster2.glb'; if (dbg) window.LAB_RIG_DEBUG = true; }, DEBUG);
+  await page.addInitScript((dbg) => { window.LAB_MONSTER_MODEL = '/assets/models/monster3.glb'; if (dbg) window.LAB_RIG_DEBUG = true; }, DEBUG);
   await page.goto(`http://localhost:${PORT}/lab.html`, { waitUntil: 'load' });
   await sleep(2600);
   await page.evaluate(() => {

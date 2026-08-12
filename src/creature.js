@@ -66,7 +66,7 @@ export class Stalker {
       this._livingU.forEach((u) => { u.uDark.value = 0.5; });
       this.group.add(root);
       this.meshyBody = root;
-      this.meshyRig = new MeshyRig(root, MONSTER2_RIG);
+      this.meshyRig = new MeshyRig(root, MONSTER2_RIG, { auto: true });
       // hide the procedural organism
       this.body.visible = false;
       if (this.mouth) this.mouth.visible = false;

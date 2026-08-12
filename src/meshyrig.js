@@ -18,6 +18,47 @@ export const MONSTER2_RIG = {
   tentacleR: 0.17,
 };
 
+// Detect open boundary loops (holes) in a mesh, in root-local space.
+// Returns [{ c:Vector3, dir:Vector3(outward), r:number, n:count }] sorted big->small.
+export function detectHoles(mesh, root) {
+  const g = mesh.geometry;
+  const pos = g.attributes.position;
+  const idx = g.index ? g.index.array : null;
+  const nTri = idx ? idx.length / 3 : pos.count / 3;
+  // weld by quantized position (GLTF splits verts at UV seams)
+  const key = (x, y, z) => `${Math.round(x * 1000)},${Math.round(y * 1000)},${Math.round(z * 1000)}`;
+  const remap = new Int32Array(pos.count);
+  const welded = []; const map = new Map();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), k = key(x, y, z);
+    let w = map.get(k); if (w === undefined) { w = welded.length; map.set(k, w); welded.push([x, y, z]); }
+    remap[i] = w;
+  }
+  const tri = (t) => idx ? [remap[idx[t * 3]], remap[idx[t * 3 + 1]], remap[idx[t * 3 + 2]]] : [remap[t * 3], remap[t * 3 + 1], remap[t * 3 + 2]];
+  const ec = new Map(); const ek = (a, b) => a < b ? a + '_' + b : b + '_' + a;
+  for (let t = 0; t < nTri; t++) { const [a, b, c] = tri(t); for (const [x, y] of [[a, b], [b, c], [c, a]]) { const k = ek(x, y); ec.set(k, (ec.get(k) || 0) + 1); } }
+  const adj = new Map();
+  for (const [k, c] of ec) if (c === 1) { const [a, b] = k.split('_').map(Number); (adj.get(a) || adj.set(a, []).get(a)).push(b); (adj.get(b) || adj.set(b, []).get(b)).push(a); }
+  const seen = new Set(); const holes = [];
+  const tmp = new THREE.Vector3();
+  const toLocal = (p) => { tmp.set(p[0], p[1], p[2]); mesh.localToWorld(tmp); root.worldToLocal(tmp); return tmp.clone(); };
+  for (const start of adj.keys()) {
+    if (seen.has(start)) continue;
+    const stack = [start], comp = [];
+    while (stack.length) { const v = stack.pop(); if (seen.has(v)) continue; seen.add(v); comp.push(v); for (const nb of adj.get(v) || []) if (!seen.has(nb)) stack.push(nb); }
+    if (comp.length < 5) continue;
+    const pts = comp.map((w) => toLocal(welded[w]));
+    const cen = pts.reduce((a, v) => a.add(v), new THREE.Vector3()).multiplyScalar(1 / pts.length);
+    let r = 0; for (const v of pts) r = Math.max(r, v.distanceTo(cen));
+    let nx = 0, ny = 0, nz = 0;
+    for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; nx += (a.y - b.y) * (a.z + b.z); ny += (a.z - b.z) * (a.x + b.x); nz += (a.x - b.x) * (a.y + b.y); }
+    const nrm = new THREE.Vector3(nx, ny, nz).normalize();
+    if (nrm.dot(new THREE.Vector3(cen.x, cen.y - 1.7, cen.z)) < 0) nrm.negate(); // outward
+    holes.push({ c: cen, dir: nrm, r, n: comp.length });
+  }
+  return holes.filter((h) => h.r > 0.08).sort((a, b) => b.r - a.r);
+}
+
 export class MeshyRig {
   constructor(parent, config, opts = {}) {
     this.parent = parent;          // the meshy body root group (local space)
@@ -26,6 +67,25 @@ export class MeshyRig {
     this._lookTarget = new THREE.Vector3(0, 2, 8);
     this.tentacles = []; this.debug = [];
     this._fleshMat = this._makeFlesh();
+
+    // auto-detect sockets from real holes in the mesh (marker-free, exact)
+    if (opts.auto) {
+      let mesh = null; parent.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
+      if (mesh) {
+        const holes = detectHoles(mesh, parent);
+        if (holes.length) {
+          // eye = the highest large hole that faces forward; sockets = the rest
+          const eyeCand = holes.filter((h) => h.c.y > 1.4 && h.dir.z > 0.2).sort((a, b) => b.c.y - a.c.y)[0] || holes[0];
+          const sockets = holes.filter((h) => h !== eyeCand && h.r > 0.09).slice(0, 10);
+          this.config = {
+            eye: { pos: [eyeCand.c.x, eyeCand.c.y, eyeCand.c.z], dir: [eyeCand.dir.x, eyeCand.dir.y, eyeCand.dir.z], size: Math.max(0.16, eyeCand.r * 0.92) },
+            sockets: sockets.map((h) => ({ pos: [h.c.x, h.c.y, h.c.z], dir: [h.dir.x, h.dir.y, h.dir.z], r: h.r })),
+            tentacleLen: config.tentacleLen || 2.8,
+          };
+        }
+      }
+    }
+
     this._buildTentacles();
     this._buildEye();
     if (opts.debug) this._buildDebug();
@@ -40,11 +100,14 @@ export class MeshyRig {
   }
 
   _buildTentacles() {
-    const NODES = 8, RINGS = 12, RADIAL = 7;
+    const NODES = 8, RINGS = 12, RADIAL = 8;
     for (const sock of this.config.sockets) {
-      const origin = new THREE.Vector3(...sock.pos);
       const outDir = new THREE.Vector3(...sock.dir).normalize();
-      const len = this.config.tentacleLen;
+      // base radius matched to the hole so the tentacle flows out of it;
+      // recess the root slightly inside so it emerges rather than clips the rim
+      const baseR = sock.r ? Math.max(0.08, sock.r * 0.95) : (this.config.tentacleR || 0.16);
+      const origin = new THREE.Vector3(...sock.pos).addScaledVector(outDir, -baseR * 0.6);
+      const len = this.config.tentacleLen * (0.85 + baseR);
       const nodes = [];
       for (let n = 0; n < NODES; n++) {
         const p = origin.clone().addScaledVector(outDir, (n / (NODES - 1)) * len);
@@ -64,7 +127,7 @@ export class MeshyRig {
       const mesh = new THREE.Mesh(geo, this._fleshMat);
       mesh.castShadow = true; mesh.frustumCulled = false;
       this.parent.add(mesh);
-      this.tentacles.push({ nodes, mesh, geo, origin, outDir, len, phase: Math.random() * TAU, side: new THREE.Vector3(), RINGS, RADIAL, NODES, baseR: this.config.tentacleR });
+      this.tentacles.push({ nodes, mesh, geo, origin, outDir, len, phase: Math.random() * TAU, side: new THREE.Vector3(), RINGS, RADIAL, NODES, baseR });
     }
   }
 

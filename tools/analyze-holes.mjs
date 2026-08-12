@@ -34,7 +34,8 @@ async function main() {
   });
   const page = await browser.newPage();
   page.on('pageerror', (e) => console.log('pageerror', e.message));
-  await page.addInitScript(() => { window.LAB_MONSTER_MODEL = '/assets/models/monster2.glb'; });
+  const MODELP = process.argv.find(a=>a.endsWith('.glb'))? '/assets/models/'+process.argv.find(a=>a.endsWith('.glb')) : '/assets/models/monster2.glb';
+  await page.addInitScript((p) => { window.LAB_MONSTER_MODEL = p; }, MODELP);
   await page.goto(`http://localhost:${PORT}/lab.html`, { waitUntil: 'load' });
   await sleep(2600);
 

@@ -217,7 +217,7 @@ class Lab {
       this.scene.add(root);
       this.meshyBody = root;
       // attach the procedural rig (socket tentacles + living eye) in body-local space
-      this.meshyRig = new MeshyRig(root, MONSTER2_RIG, { debug: !!window.LAB_RIG_DEBUG });
+      this.meshyRig = new MeshyRig(root, MONSTER2_RIG, { auto: true, debug: !!window.LAB_RIG_DEBUG });
       this._addMeshyToggle();
       // default to showing the freshly-loaded Meshy body
       this.useMeshy = true;
