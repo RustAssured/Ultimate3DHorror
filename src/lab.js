@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { PostFX } from './postfx.js';
 import { Player } from './player.js';
 import { Stalker } from './creature.js';
-import { loadGLTF, normalizeToHeight } from './models.js';
+import { loadGLTF, normalizeToHeight, patchLivingFlesh } from './models.js';
 import { clamp, damp } from './util.js';
 
 class Lab {
@@ -204,11 +204,12 @@ class Lab {
       const gltf = await loadGLTF(path);
       const { root } = normalizeToHeight(gltf.scene, 3.4);
       root.position.y = this._meshyBaseY;
+      this._livingU = [];
       root.traverse((o) => {
         if (o.isMesh) {
           o.castShadow = true; o.frustumCulled = false;
           const mats = Array.isArray(o.material) ? o.material : [o.material];
-          mats.forEach((m) => { m.transparent = true; this._meshyMats.push(m); });
+          mats.forEach((m) => { m.transparent = true; this._meshyMats.push(m); this._livingU.push(patchLivingFlesh(m)); });
         }
       });
       root.visible = false;
@@ -289,8 +290,10 @@ class Lab {
       // drive the optional Meshy body (breathing + materialize fade + spin)
       if (this.useMeshy && this.meshyBody) {
         this.meshyBody.rotation.y = this.yaw;
-        this.meshyBody.scale.setScalar(1 + Math.sin(now / 1000 * 2.4) * 0.03 * (0.5 + this.menace));
         for (const m of this._meshyMats) m.opacity = this.materialize;
+        // drive the living-skin shader (breathing/wet/veins/gross scale with menace)
+        const t = now / 1000;
+        for (const u of (this._livingU || [])) { u.uTime.value = t; u.uMenace.value = this.menace; u.uMat.value = this.materialize; }
       }
     }
 

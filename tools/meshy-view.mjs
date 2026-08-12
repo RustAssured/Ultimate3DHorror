@@ -65,12 +65,17 @@ async function main() {
   });
   await sleep(800);
   await shot('meshy-front');
-  await page.evaluate(() => { const l = window.__lab; l.camYaw = 0.9; l.camPitch = 0.2; });
+  // maximally gross (menace = 1): wet, veined, infected
+  await page.evaluate(() => { const l = window.__lab; l.menace = 1.0; });
+  await sleep(700);
+  await shot('meshy-gross');
+  // clean (menace ~0): baseline bake
+  await page.evaluate(() => { const l = window.__lab; l.menace = 0.05; });
+  await sleep(700);
+  await shot('meshy-clean');
+  await page.evaluate(() => { const l = window.__lab; l.menace = 0.7; l.camYaw = 0.9; l.camPitch = 0.2; });
   await sleep(600);
   await shot('meshy-3q');
-  await page.evaluate(() => { const l = window.__lab; l.wire = true; l._applyWire(); });
-  await sleep(400);
-  await shot('meshy-wire');
 
   await browser.close(); server.close();
   console.log('=== ERRORS (' + errors.length + ') ===');
