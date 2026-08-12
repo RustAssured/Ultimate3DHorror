@@ -215,6 +215,10 @@ class Lab {
       this.scene.add(root);
       this.meshyBody = root;
       this._addMeshyToggle();
+      // default to showing the freshly-loaded Meshy body
+      this.useMeshy = true;
+      this._applyMeshy();
+      if (this._meshyBtn) { this._meshyBtn.textContent = 'BODY: MESHY'; this._meshyBtn.classList.add('active'); }
       console.log('Meshy body loaded');
     } catch (e) {
       // no monster.glb committed yet — the toggle simply won't appear
@@ -243,6 +247,12 @@ class Lab {
     if (s.mouth) s.mouth.visible = proc;
     for (const e of s.eyes) e.group.visible = proc;
     if (this.meshyBody) this.meshyBody.visible = this.useMeshy && this.subject === 'monster';
+    // the baked PBR bake is brighter than our flesh — soften the studio for it
+    if (this.subject === 'monster') {
+      this.key.intensity = this.useMeshy ? 90 : 240;
+      this.rim.intensity = this.useMeshy ? 70 : 200;
+      this.kick.intensity = this.useMeshy ? 60 : 120;
+    }
   }
 
   _bindOrbit() {

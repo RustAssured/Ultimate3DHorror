@@ -39,10 +39,8 @@ async function main() {
   page.on('pageerror', (e) => errors.push('[pageerror] ' + e.message));
   const shot = (n) => page.screenshot({ path: path.join(OUT, n + '.png') });
 
-  // exercise the optional Meshy-body load path against the GLB fixture
-  await page.addInitScript(() => { window.LAB_MONSTER_MODEL = '/tools/fixtures/triangle.glb'; });
   await page.goto(`http://localhost:${PORT}/lab.html`, { waitUntil: 'load' });
-  await sleep(1500);
+  await sleep(2800); // allow the committed Meshy GLB to load + parse
   const ready = await page.evaluate(() => !!window.__lab);
   const meshyOk = await page.evaluate(() => !!(window.__lab && window.__lab.meshyBody && window.__lab._meshyBtn));
   console.log('meshy body load path:', meshyOk ? 'PASS' : 'FAIL');
