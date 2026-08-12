@@ -114,8 +114,12 @@ class Lab {
     this.stalker.active = !warden;
     this.stalker.group.visible = !warden;
     if (!warden) { this.stalker.materialize = this.materialize; }
-    this.target.set(0, warden ? 1.15 : 2.0, 0);
+    this.target.set(0, warden ? 1.15 : 2.2, 0);
     this.camDist = warden ? 5.5 : 8;
+    // per-subject studio intensity: flesh is far more reflective than the coat
+    this.key.intensity = warden ? 1500 : 240;
+    this.rim.intensity = warden ? 950 : 200;
+    this.kick.intensity = warden ? 220 : 120;
     this._applyWire();
     this._syncUI();
   }
@@ -211,7 +215,7 @@ class Lab {
       this.player.beam.intensity = 0;
       this.player.glow.intensity = 16 * (this.player.lanternOn ? this.player.flicker : 0);
     } else {
-      this.stalker.labUpdate(dt, { materialize: this.materialize, menace: this.menace, yaw: this.yaw });
+      this.stalker.labUpdate(dt, { materialize: this.materialize, menace: this.menace, yaw: this.yaw, lookTarget: this.camera.position });
     }
 
     // orbit camera
