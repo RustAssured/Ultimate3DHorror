@@ -56,6 +56,22 @@ procedural Warden — it never breaks.
   to it.)
 - **Props / monoliths / relics:** can be swapped for models the same way.
 
+## Monster body (Meshy body/head core)
+
+The **Character Lab** can also load a Meshy-generated monster body and compare it
+live against the procedural one:
+
+1. Commit your GLB as `assets/models/monster.glb`.
+2. In `lab.html`, uncomment the `window.LAB_MONSTER_MODEL` line.
+3. Open the Lab → **MONSTER**; a **BODY: PROCEDURAL / MESHY** toggle appears.
+
+Recommended: keep Meshy's **baked PBR** (the eye + mouth are baked into the
+texture — gorgeous) and let the Lab layer the procedural life on top
+(breathing, materialize fade) with the procedural tentacles re-attached around
+it. Scale/orientation is auto-normalised to ~3.4 units tall; exact fit + a
+"wet-shader instead of baked" option are tuned by hand once the file is in.
+`.glb` is the right format — no need to convert to OBJ/FBX.
+
 ## Formats supported
 
 `.glb` and `.gltf` (glTF 2.0) via the vendored `GLTFLoader`. FBX/OBJ from Meshy

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { PostFX } from './postfx.js';
 import { Player } from './player.js';
 import { Stalker } from './creature.js';
+import { loadGLTF, normalizeToHeight } from './models.js';
 import { clamp, damp } from './util.js';
 
 class Lab {
@@ -45,8 +46,11 @@ class Lab {
     this.target = new THREE.Vector3(0, 1.2, 0);
     this._camPos = new THREE.Vector3();
 
+    // optional Meshy-generated body (appears as a toggle once committed)
+    this.useMeshy = false; this.meshyBody = null; this._meshyMats = []; this._meshyBaseY = 0.4;
     this._buildUI();
     this._bindOrbit();
+    this._tryLoadMeshyBody();
     this._show('warden');
     this._onResize();
     window.addEventListener('resize', () => this._onResize());
@@ -120,6 +124,7 @@ class Lab {
     this.key.intensity = warden ? 1500 : 240;
     this.rim.intensity = warden ? 950 : 200;
     this.kick.intensity = warden ? 220 : 120;
+    if (this.meshyBody) this._applyMeshy();
     this._applyWire();
     this._syncUI();
   }
@@ -135,6 +140,7 @@ class Lab {
   _buildUI() {
     const root = document.getElementById('ui');
     const panel = document.createElement('div'); panel.className = 'panel'; root.appendChild(panel);
+    this._panel = panel;
     const h = (t) => { const e = document.createElement('div'); e.className = 'h'; e.textContent = t; panel.appendChild(e); };
     const btn = (t, fn) => { const b = document.createElement('button'); b.textContent = t; b.onclick = fn; panel.appendChild(b); return b; };
     const row = () => { const r = document.createElement('div'); r.className = 'row'; panel.appendChild(r); return r; };
@@ -185,6 +191,60 @@ class Lab {
     if (this._lanternBtn) this._lanternBtn.textContent = 'LANTERN: ' + ((this.lanternOn !== false) ? 'ON' : 'OFF');
   }
 
+  // Load an optional Meshy-generated body. Gated behind a config path so there
+  // is no 404 until a model is actually wired up.
+  _tryLoadMeshyBody() {
+    const path = (window.COSMIC_CONFIG && window.COSMIC_CONFIG.monsterModel) || window.LAB_MONSTER_MODEL;
+    if (!path) return;
+    this._loadMeshyBody(path);
+  }
+
+  async _loadMeshyBody(path) {
+    try {
+      const gltf = await loadGLTF(path);
+      const { root } = normalizeToHeight(gltf.scene, 3.4);
+      root.position.y = this._meshyBaseY;
+      root.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = true; o.frustumCulled = false;
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          mats.forEach((m) => { m.transparent = true; this._meshyMats.push(m); });
+        }
+      });
+      root.visible = false;
+      this.scene.add(root);
+      this.meshyBody = root;
+      this._addMeshyToggle();
+      console.log('Meshy body loaded');
+    } catch (e) {
+      // no monster.glb committed yet — the toggle simply won't appear
+    }
+  }
+
+  _addMeshyToggle() {
+    const b = document.createElement('button');
+    b.textContent = 'BODY: PROCEDURAL';
+    b.style.marginTop = '10px';
+    b.onclick = () => {
+      this.useMeshy = !this.useMeshy;
+      this._applyMeshy();
+      b.textContent = 'BODY: ' + (this.useMeshy ? 'MESHY' : 'PROCEDURAL');
+      b.classList.toggle('active', this.useMeshy);
+    };
+    this._meshyBtn = b;
+    this._panel.appendChild(b);
+  }
+
+  _applyMeshy() {
+    const s = this.stalker;
+    const proc = !this.useMeshy;
+    // procedural body/eyes/mouth off when the Meshy body drives the look
+    s.body.visible = proc;
+    if (s.mouth) s.mouth.visible = proc;
+    for (const e of s.eyes) e.group.visible = proc;
+    if (this.meshyBody) this.meshyBody.visible = this.useMeshy && this.subject === 'monster';
+  }
+
   _bindOrbit() {
     let dragging = false, px = 0, py = 0;
     this.canvas.addEventListener('mousedown', (e) => { dragging = true; px = e.clientX; py = e.clientY; });
@@ -216,6 +276,12 @@ class Lab {
       this.player.glow.intensity = 16 * (this.player.lanternOn ? this.player.flicker : 0);
     } else {
       this.stalker.labUpdate(dt, { materialize: this.materialize, menace: this.menace, yaw: this.yaw, lookTarget: this.camera.position });
+      // drive the optional Meshy body (breathing + materialize fade + spin)
+      if (this.useMeshy && this.meshyBody) {
+        this.meshyBody.rotation.y = this.yaw;
+        this.meshyBody.scale.setScalar(1 + Math.sin(now / 1000 * 2.4) * 0.03 * (0.5 + this.menace));
+        for (const m of this._meshyMats) m.opacity = this.materialize;
+      }
     }
 
     // orbit camera
