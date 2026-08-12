@@ -6,6 +6,7 @@ import { PostFX } from './postfx.js';
 import { Player } from './player.js';
 import { Stalker } from './creature.js';
 import { loadGLTF, normalizeToHeight, patchLivingFlesh } from './models.js';
+import { MeshyRig, MONSTER2_RIG } from './meshyrig.js';
 import { clamp, damp } from './util.js';
 
 class Lab {
@@ -215,6 +216,8 @@ class Lab {
       root.visible = false;
       this.scene.add(root);
       this.meshyBody = root;
+      // attach the procedural rig (socket tentacles + living eye) in body-local space
+      this.meshyRig = new MeshyRig(root, MONSTER2_RIG, { debug: !!window.LAB_RIG_DEBUG });
       this._addMeshyToggle();
       // default to showing the freshly-loaded Meshy body
       this.useMeshy = true;
@@ -247,6 +250,8 @@ class Lab {
     s.body.visible = proc;
     if (s.mouth) s.mouth.visible = proc;
     for (const e of s.eyes) e.group.visible = proc;
+    // hide the placeholder procedural tentacles when the Meshy rig drives them
+    for (const t of s.tentacles) t.mesh.visible = proc;
     if (this.meshyBody) this.meshyBody.visible = this.useMeshy && this.subject === 'monster';
     // the baked PBR bake is brighter than our flesh — soften the studio for it
     if (this.subject === 'monster') {
@@ -294,6 +299,8 @@ class Lab {
         // drive the living-skin shader (breathing/wet/veins/gross scale with menace)
         const t = now / 1000;
         for (const u of (this._livingU || [])) { u.uTime.value = t; u.uMenace.value = this.menace; u.uMat.value = this.materialize; }
+        // drive the socket tentacles + living eye
+        if (this.meshyRig) this.meshyRig.update(dt, { menace: this.menace, materialize: this.materialize, lookTarget: this.camera.position });
       }
     }
 
