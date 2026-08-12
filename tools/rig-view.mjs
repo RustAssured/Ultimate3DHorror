@@ -43,7 +43,8 @@ async function main() {
   await page.evaluate(() => {
     const l = window.__lab;
     l._show('monster'); l.useMeshy = true; l._applyMeshy(); l.autoRotate = false;
-    l.materialize = 1; l.menace = 0.65; l.key.intensity = 150; l.rim.intensity = 110; l.kick.intensity = 60;
+    l.materialize = 1; l.menace = 0.55; l.key.intensity = 90; l.rim.intensity = 70; l.kick.intensity = 30;
+    if (l.postfx && l.postfx.bloom) l.postfx.bloom.strength = 0.4;
   });
   const angle = async (name, yaw, pitch, dist, ty) => {
     await page.evaluate(({ yaw, pitch, dist, ty }) => { const l = window.__lab; l.camYaw = yaw; l.camPitch = pitch; l.camDist = dist; l.target.set(0, ty, 0); }, { yaw, pitch, dist, ty });

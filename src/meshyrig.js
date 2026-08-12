@@ -6,7 +6,7 @@ import { clamp, damp, TAU } from './util.js';
 // Default anchors for monster2.glb (root-local space: x[-1.5,1.5] y[0,3.4] z[-1.5,1.5],
 // face toward +Z). Tuned visually in the Lab.
 export const MONSTER2_RIG = {
-  eye: { pos: [0.34, 2.32, 0.98], dir: [0.15, 0.1, 1], size: 0.27 },
+  eye: { pos: [0.30, 2.18, 1.02], dir: [0.12, 0.05, 1], size: 0.29 },
   sockets: [
     { pos: [-1.05, 0.75, 0.85], dir: [-0.5, -0.55, 0.7] },
     { pos: [-0.55, 0.58, 1.15], dir: [-0.2, -0.7, 0.7] },
@@ -97,9 +97,9 @@ export class MeshyRig {
   }
 
   _buildDebug() {
-    const mk = (p, c) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: c })); m.position.set(...p); this.parent.add(m); this.debug.push(m); };
+    const mk = (p, c, r = 0.14) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 10), new THREE.MeshBasicMaterial({ color: c })); m.position.set(...p); m.renderOrder = 999; m.material.depthTest = false; this.parent.add(m); this.debug.push(m); };
     for (const s of this.config.sockets) mk(s.pos, 0x00ff88);
-    mk(this.config.eye.pos, 0x00aaff);
+    mk(this.config.eye.pos, 0x00aaff, 0.1);
   }
 
   update(dt, { menace = 0.5, materialize = 1, lookTarget = null } = {}) {
