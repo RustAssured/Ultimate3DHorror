@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>COSMIC FALL — Side-Scroll Descent</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%23070a12'/><circle cx='8' cy='8' r='3' fill='%23ff2f8a'/></svg>" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #05070c; font-family: 'Trebuchet MS', system-ui, sans-serif; color: #cdd6e6; user-select: none; }
+    #game { position: fixed; inset: 0; display: block; }
+    #ui { position: fixed; inset: 0; pointer-events: none; }
+    #ui .ss-screen, #ui button { pointer-events: auto; }
+    .hidden { display: none !important; }
+    .ss-screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; background: radial-gradient(ellipse at center, rgba(4,6,12,0.6), rgba(2,3,6,0.95)); }
+    .ss-title { font-size: clamp(44px, 9vw, 110px); font-weight: 800; letter-spacing: 0.14em; color: #eaf1ff; text-shadow: 0 0 44px rgba(120,90,255,0.35), 0 6px 30px rgba(0,0,0,0.9); }
+    .ss-sub { font-size: clamp(13px, 2.2vw, 19px); color: #6b7688; font-style: italic; letter-spacing: 0.2em; margin-bottom: 18px; }
+    .ss-controls { margin-top: 20px; font-size: 13px; color: #5a6272; letter-spacing: 0.08em; }
+    .ss-endtitle { font-size: clamp(28px, 5vw, 52px); font-weight: 800; letter-spacing: 0.1em; margin-bottom: 18px; }
+    button.ss-btn { min-width: 260px; padding: 14px 26px; background: rgba(30,40,66,0.5); border: 1px solid rgba(150,180,230,0.3); color: #cdd6e6; font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border-radius: 3px; transition: all 0.2s; }
+    button.ss-btn:hover { background: rgba(70,110,180,0.45); border-color: #9fe0ff; color: #fff; box-shadow: 0 0 24px rgba(120,170,255,0.25); }
+    .ss-hud { position: absolute; inset: 0; }
+    .ss-dist { position: absolute; top: 18px; left: 22px; font-size: 14px; letter-spacing: 0.12em; color: #9fe0ff; text-shadow: 0 2px 8px rgba(0,0,0,0.9); }
+    .ss-hint { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); font-size: 12px; font-style: italic; color: #5a6272; letter-spacing: 0.1em; }
+    #fatal { display: none; position: fixed; inset: 0; align-items: center; justify-content: center; color: #ff8a8a; background: #05070c; font-size: 16px; padding: 40px; text-align: center; }
+    .ss-tag { position: fixed; bottom: 14px; right: 18px; color: #3d4658; font-size: 11px; letter-spacing: 0.18em; }
+  </style>
+  <script type="importmap">
+  { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="ui"></div>
+  <div class="ss-tag">COSMIC FALL · SIDE-SCROLL PROTOTYPE</div>
+  <div id="fatal"></div>
+  <script type="module" src="./src/sidescroller.js"></script>
+</body>
+</html>
